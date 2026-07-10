@@ -1,42 +1,39 @@
 /**
  * @file
- * @brief A demo 2-3-4 tree implementation
+ * @brief A demo 2-3-4 tree implementation (2-3-4树的演示实现)
  * @details
- * 2–3–4 tree is a self-balancing data structure that is an isometry of
- * red–black trees. Though we seldom use them in practice, we study them
- * to understand the theory behind Red-Black tree. Please read following
- * links for more infomation.
+ * 2-3-4树是一种自平衡的搜索树，与红黑树具有同构性（每个红黑树都可以等价转换为一个2-3-4树）。
+ * 通过学习2-3-4树，有助于深入理解红黑树平衡旋转和染色的数学原理。
  * [2–3–4 tree](https://en.wikipedia.org/wiki/2%E2%80%933%E2%80%934_tree)
- * [2-3-4 Trees: A Visual
-Introduction](https://www.educative.io/page/5689413791121408/80001)
- * We Only implement some basic and complicated operations in this demo.
- * Other operations should be easy to be added.
+ * [2-3-4 Trees: A Visual Introduction](https://www.educative.io/page/5689413791121408/80001)
+ *
  * @author [liuhuan](https://github.com/fedom)
  */
-#include <array>     /// for std::array
-#include <cassert>   /// for assert
-#include <fstream>   /// for std::ofstream
-#include <iostream>  /// for std::cout
-#include <memory>    /// for std::unique_ptr
-#include <queue>     /// for std::queue
-#include <string>    /// for std::to_string
+#include <array>     /// 用于 std::array
+#include <cassert>   /// 用于 assert 断言
+#include <fstream>   /// 用于文件输出流 (std::ofstream)
+#include <iostream>  /// 用于标准输出
+#include <memory>    /// 用于智能指针 (std::unique_ptr)
+#include <queue>     /// 用于层序遍历队列 (std::queue)
+#include <string>    /// 用于 std::to_string
 
 /**
  * @namespace data_structures
- * @brief Algorithms with data structures
+ * @brief 数据结构命名空间
  */
 namespace data_structures {
 /**
  * @namespace tree_234
- * @brief Functions for [2–3–4 tree](https://en.wikipedia.org/wiki/2%E2%80%933%E2%80%934_tree)
+ * @brief 2-3-4 树相关的命名空间
  */
 namespace tree_234 {
-/** @brief 2-3-4 tree node class */
+
+/** @brief 2-3-4 树的节点类 */
 class Node {
  public:
     /**
-     * @brief Node constructor
-     * @param item the first value we insert to the node
+     * @brief 节点构造函数
+     * @param item 节点保存的第一个初始值
      */
     explicit Node(int64_t item)
         : items({{item, 0, 0}}),
@@ -44,50 +41,43 @@ class Node {
           count(1) {}
 
     /**
-     * @brief Get the item count that current saved in the node
-     * @return item count
+     * @brief 获取当前节点中的有效键值数
+     * @return 键值个数 (1代表2-node，2代表3-node，3代表4-node)
      */
     int8_t GetCount() { return count; }
 
     /**
-     * @brief Set the item count of the node
-     *
-     * This is only used when we spliting and merging node where we need to do
-     * some raw operation manually. In common inserting and removing operation
-     * the count is maintained automatically.
-     *
-     * @param c the count to set
+     * @brief 设置节点有效键值个数（通常仅用于拆分和合并时的底层重组操作）
+     * @param c 设置的目标个数
      */
     void SetCount(int8_t c) { count = c; }
 
     /**
-     * @brief Check if node is a leaf
-     * @return true if node is leaf, false otherwise
+     * @brief 判断该节点是否为叶子节点
+     * @return `true` 为叶子节点；`false` 否则
      */
     bool IsLeaf() { return children[0] == nullptr; }
 
     /**
-     * @brief Check if node is a full (4-node)
-     * @return true if node is full (4-node), false otherwise
+     * @brief 判断该节点是否已满 (即 4-node，包含 3 个键值)
+     * @return `true` 代表已满；`false` 否则
      */
     bool IsFull() { return count == 3; }
 
     /**
-     * @brief Check if node is a 2-node
-     * @return true if node is 2-node, otherwise false
+     * @brief 判断该节点是否为 2-node (仅包含 1 个键值)
+     * @return `true` 代表是；`false` 否则
      */
     bool Is2Node() { return count == 1; }
 
-    /** @brief Check if node is a 3-node or 4-node, this is useful when we
-     * delete item from 2-3-4 tree
-     * @return true if node is 3-node or 4-node, false otherwise
+    /**
+     * @brief 判断该节点是否为 3-node 或 4-node (在删除键值处理下溢时非常有用)
+     * @return `true` 代表是；`false` 否则
      */
     bool Is34Node() { return count == 2 || count == 3; }
 
     /**
-     * @brief Check if item is in the node
-     * @param item item to check
-     * @return true if item in the node, otherwise false
+     * @brief 检查节点是否包含目标值 item
      */
     bool Contains(int64_t item) {
         for (int8_t i = 0; i < count; i++) {
@@ -99,10 +89,9 @@ class Node {
     }
 
     /**
-     * @brief Get the index of the item in the node, 0-based
-     * @param item item to check
-     * @return 0-based index of the item in the node, if not in the node, -1 is
-     * returned
+     * @brief 获取目标值 item 在节点中的 0 起始索引位置
+     * @param item 待查找的键值
+     * @return 0 到 2 之间的索引，若不存在则返回 -1
      */
     int8_t GetItemIndex(int64_t item) {
         for (int8_t i = 0; i < count; i++) {
@@ -114,51 +103,34 @@ class Node {
     }
 
     /**
-     * @brief Get max item (rightmost) in the current node
-     * @return max item
+     * @brief 获取当前节点中的最大值（最右侧的值）
      */
     int64_t GetMaxItem() { return items[count - 1]; }
 
     /**
-     * @brief get min item (leftmost) in the current node
-     * @return min item
+     * @brief 获取当前节点中的最小值（最左侧的值）
      */
     int64_t GetMinItem() { return items[0]; }
 
     /**
-     * @brief Get item of the \index index
-     * @param index the item index to get
-     * @return the item
+     * @brief 获取指定索引处的键值
      */
     int64_t GetItem(int8_t index) { return items[index]; }
 
     /**
-     * @brief Set item value at position of index
-     * @param index the index of the item to set
-     * @param new_item item value
+     * @brief 设置指定索引处的键值
      */
     void SetItem(int8_t index, int64_t new_item) {
         assert(index >= 0 && index <= 2);
-
         items[index] = new_item;
     }
 
     /**
-     * @brief Insert item to the proper position of the node and return the
-     * position index.
+     * @brief 将值 item 插入到节点内部的正确有序位置，并返回对应的索引位置。
+     * @details 插入时，调用者需要手动维护其左右孩子指针的平衡与指向。
      *
-     * This is a helper function we use during insertion. Please mind that when
-     * insert a item, we aslo need to take care of two child pointers. One is
-     * the original child pointer at the insertion position. It can be placed as
-     * new item's either left child or right child. And the other is the new
-     * child that should be added. For our dedicated situation here, we choose
-     * to use the original child as the new item's left child, and add a null
-     * pointer to its right child. So after use the function, please update
-     * these two children pointer manually.
-     *
-     * @param item value to be inserted to the node
-     * @return index where item is inserted, caller can use this
-     * index to update its left and right child
+     * @param item 待插入的值
+     * @return 插入成功的索引位置；如果已存在则返回 -1
      */
     int InsertItem(int item) {
         assert(!IsFull());
@@ -179,40 +151,39 @@ class Node {
     }
 
     /**
-     * @brief Insert a value to the index position
-     * @param index index where to insert item
-     * @param item  value to insert
-     * @param with_child new added child pointer
-     * @param to_left true indicate adding with_child to new item's left child,
-     * otherwise to right child
+     * @brief 按指定索引位置强行插入一个新值及孩子节点指针
+     *
+     * @param index 插入位置的索引
+     * @param item 插入的数值
+     * @param with_child 伴随插入的孩子节点指针
+     * @param to_left `true` 表示将 with_child 设为新元素左侧孩子；`false` 设为右侧孩子
      */
     void InsertItemByIndex(int8_t index, int64_t item, Node *with_child,
                            bool to_left = true) {
         assert(count < 3 && index >= 0 && index < 3);
 
+        // 数据元素向后平移
         for (int8_t i = count - 1; i >= index; i--) {
             items[i + 1] = items[i];
         }
-
         items[index] = item;
 
+        // 孩子指针向后平移
         int8_t start_index = to_left ? index : index + 1;
-
         for (int8_t i = count; i >= start_index; i--) {
             children[i + 1] = children[i];
         }
-
         children[start_index] = with_child;
 
         count++;
     }
 
     /**
-     * @brief Insert a value to the index position
-     * @param index index of the item to remove
-     * @param keep_left which child of the item to keep, true keep the left
-     * child, false keep the right child
-     * @return the removed child pointer
+     * @brief 根据指定索引位置删除一个键值，并选择保留哪侧的孩子节点指针
+     *
+     * @param index 待删除键值的索引
+     * @param keep_left `true` 保留左孩子并删除右孩子指针；`false` 反之
+     * @return 被移除的孩子节点指针
      */
     Node *RemoveItemByIndex(int8_t index, bool keep_left) {
         assert(index >= 0 && index < count);
@@ -230,9 +201,7 @@ class Node {
     }
 
     /**
-     * @brief Get the child's index of the children array
-     * @param child child pointer of which to get the index
-     * @return the index of child
+     * @brief 获取某孩子指针在当前节点 children 数组中的索引位置
      */
     int8_t GetChildIndex(Node *child) {
         for (int8_t i = 0; i < count + 1; i++) {
@@ -240,66 +209,53 @@ class Node {
                 return i;
             }
         }
-
         return -1;
     }
 
     /**
-     * @brief Get the child pointer at position of index
-     * @param index index of child to get
-     * @return the child pointer
+     * @brief 获取指定索引处的孩子节点指针
      */
     Node *GetChild(int8_t index) { return children[index]; }
 
     /**
-     * @brief Set child pointer to the position of index
-     * @param index children index
-     * @param child pointer to set
+     * @brief 设置指定索引位置的孩子指针
      */
     void SetChild(int8_t index, Node *child) { children[index] = child; }
 
     /**
-     * @brief Get rightmose child of the current node
-     * @return the rightmost child
+     * @brief 获取最右侧孩子节点指针
      */
     Node *GetRightmostChild() { return children[count]; }
 
     /**
-     * @brief Get leftmose child of the current node
-     * @return the leftmost child
+     * @brief 获取最左侧孩子节点指针
      */
     Node *GetLeftmostChild() { return children[0]; }
 
     /**
-     * @brief Get left child of item at item_index
-     * @param item_index  index of the item whose left child to be get
-     * @return left child of items[index]'s
+     * @brief 获取某一项键值其对应的左孩子指针
      */
     Node *GetItemLeftChild(int8_t item_index) {
         if (item_index < 0 || item_index > count - 1) {
             return nullptr;
         }
-
         return children[item_index];
     }
 
     /**
-     * @brief Get right child of item at item_index
-     * @param item_index  index of the item whose right child to be get
-     * @return right child of items[index]'s
+     * @brief 获取某一项键值其对应的右孩子指针
      */
     Node *GetItemRightChild(int8_t item_index) {
         if (item_index < 0 || item_index > count - 1) {
             return nullptr;
         }
-
         return children[item_index + 1];
     }
 
     /**
-     * @brief Get next node which is possibly contains item
-     * @param item item to search
-     * @return the next node that possibly contains item
+     * @brief 沿着键值大小区间寻找可能包含元素 item 的下一个子树分支节点
+     * @param item 待查找元素
+     * @return 匹配的下一个孩子节点指针
      */
     Node *GetNextPossibleChild(int64_t item) {
         int i = 0;
@@ -312,14 +268,12 @@ class Node {
     }
 
  private:
-    std::array<int64_t, 3> items;  ///< store items
-
-    std::array<Node *, 4> children;  ///< store the children pointers
-
-    int8_t count = 0;  ///< track the current item count
+    std::array<int64_t, 3> items;  ///< 最多包含 3 个元素的值数组
+    std::array<Node *, 4> children;  ///< 最多包含 4 个分支的孩子节点指针数组
+    int8_t count = 0;  ///< 记录当前节点内实际保存的有效键值数
 };
 
-/** @brief 2-3-4 tree class */
+/** @brief 2-3-4 树类定义 */
 class Tree234 {
  public:
     Tree234() = default;
@@ -331,219 +285,125 @@ class Tree234 {
     ~Tree234();
 
     /**
-     * @brief Insert item to tree
-     * @param item item to insert
+     * @brief 向2-3-4树插入一个键值 item
      */
     void Insert(int64_t item);
 
     /**
-     * @brief Remove item from tree
-     * @param item item to remove
-     * @return true if item found and removed, false otherwise
+     * @brief 从2-3-4树中删除一个键值 item
+     * @return `true` 代表删除成功；`false` 未找到该元素导致删除失败
      */
     bool Remove(int64_t item);
 
-    /** @brief In-order traverse */
+    /** @brief 中序遍历并打印树中元素 */
     void Traverse();
 
     /**
-     * @brief Print tree into a dot file
-     * @param file_name output file name, if nullptr then use "out.dot" as
-     * default
+     * @brief 打印树的结构信息，并输出为 Graphviz 格式的 .dot 文件
+     * @param file_name 输出文件名，若为 nullptr 则默认存为 "out.dot"
      */
     void Print(const char *file_name = nullptr);
 
  private:
     /**
-     * @brief A insert implementation of pre-split
-     * @param item item to insert
+     * @brief 前分裂（Pre-split）插入算法实现
+     * @details 在自顶向下寻找插入位置的过程中，一旦遇到满节点 (4-node)，直接将其分裂，
+     * 从而保证递归向下时绝不会遇到满的祖先节点，简化了上溢回溯的过程。
      */
     void InsertPreSplit(int64_t item);
 
     /**
-     * @brief A insert implementation of post-merge
-     * @param item item to insert
+     * @brief 后合并（Post-merge）插入算法实现
+     * @details 先自顶向下插入到叶子节点，若导致上溢则从下往上逐层分裂并合并。
      */
     void InsertPostMerge(int64_t item);
 
     /**
-     * @brief A helper function used by post-merge insert
-     * @param tree tree where to insert item
-     * @param item item to insert
-     * @return the node that split as the parent when overflow happen
+     * @brief 递归插入辅助函数（后合并法）
      */
     Node *Insert(Node *tree, int64_t item);
 
     /**
-     * @brief A helper function used during post-merge insert
-     *
-     * When the inserting leads to overflow, it will split the node to 1 parent
-     * and 2 children. The parent will be merged to its origin parent after
-     * that. This is the function to complete this task. So the param node is
-     * always a 2-node.
-     *
-     * @param dst_node the target node we will merge node to, can be type of
-     * 2-node, 3-node or 4-node
-     * @param node the source node we will merge from, type must be 2-node
-     * @return overflow node of this level
+     * @brief 后合并法中的合并操作，将溢出的向上节点合并到当前层父节点
      */
     Node *MergeNode(Node *dst_node, Node *node);
 
     /**
-     * @brief Merge node to a not-full target node
-     *
-     * Since the target node is not-full, no overflow will happen. So we have
-     * nothing to return.
-     *
-     * @param dst_node the target not-full node, that is the type is either
-     * 2-node or 3-node, but not 4-node
-     * @param node the source node we will merge from, type must be 2-node
+     * @brief 向未满的节点合并一个新分裂出来的 2-node
      */
     void MergeNodeNotFull(Node *dst_node, Node *node);
 
     /**
-     * @brief Split a 4-node to 1 parent and 2 children, and return the parent
-     * node
-     * @param node the node to split, it must be a 4-node
-     * @return split parent node
+     * @brief 将一个满的 4-node 分裂为 1个父节点和2个孩子节点，并返回新父节点
      */
     Node *SplitNode(Node *node);
 
     /**
-     * @brief Get the max item of the tree
-     * @param tree the tree we will get item from
-     * @return max item of the tree
+     * @brief 寻找指定子树中的最大值
      */
     int64_t GetTreeMaxItem(Node *tree);
 
     /**
-     * @brief Get the min item of the tree
-     * @param tree the tree we will get item from
-     * @return min item of the tree
+     * @brief 寻找指定子树中的最小值
      */
     int64_t GetTreeMinItem(Node *tree);
 
     /**
-     * @brief A handy function to try if we can do a left rotate to the target
-     * node
-     *
-     * Given two node, the parent and the target child, the left rotate
-     * operation is uniquely identified. The source node must be the right
-     * sibling of the target child. The operation can be successfully done if
-     * the to_child has a right sibling and its right sibling is not 2-node.
-     *
-     * @param parent the parent node in this left rotate operation
-     * @param to_child the target child of this left rotate operation. In our
-     * case, this node is always 2-node
-     * @return true if we successfully do the rotate. false if the
-     * requirements are not fulfilled.
+     * @brief 尝试对指定节点执行左旋转操作（从右侧兄弟借调元素）
+     * @return `true` 旋转成功；`false` 兄弟节点为 2-node 无法借调
      */
     bool TryLeftRotate(Node *parent, Node *to_child);
 
     /**
-     * @brief A handy function to try if we can do a right rotate to the target
-     * node
-     *
-     * Given two node, the parent and the target child, the right rotate
-     * operation is uniquely identified. The source node must be the left
-     * sibling of the target child. The operation can be successfully done if
-     * the to_child has a left sibling and its left sibling is not 2-node.
-     *
-     * @param parent the parent node in this right rotate operation
-     * @param to_child the target child of this right rotate operation. In our
-     * case, it is always 2-node
-     * @return true if we successfully do the rotate. false if the
-     * requirements are not fulfilled.
+     * @brief 尝试对指定节点执行右旋转操作（从左侧兄弟借调元素）
+     * @return `true` 旋转成功；`false` 兄弟节点为 2-node 无法借调
      */
     bool TryRightRotate(Node *parent, Node *to_child);
 
     /**
-     * @brief Do the actual right rotate operation
-     *
-     * Given parent node, and the pivot item index, the right rotate operation
-     * is uniquely identified. The function assume the requirements are
-     * fulfilled and won't do any extra check. This function is call by
-     * TryRightRotate(), and the condition checking should be done before call
-     * it.
-     *
-     * @param parent the parent node in this right rotate operation
-     * @param index the pivot item index of this right rotate operation.
+     * @brief 执行具体的右旋转键值重组操作
      */
     void RightRotate(Node *parent, int8_t index);
 
     /**
-     * @brief Do the actual left rotate operation
-     *
-     * Given parent node, and the pivot item index, the left rotate operation is
-     * uniquely identified. The function assume the requirements are fulfilled
-     * and won't do any extra check. This function is call by TryLeftRotate(),
-     * and the condition checking should be done before call it.
-     *
-     * @param parent the parent node in this right rotate operation
-     * @param index the pivot item index of this right rotate operation.
+     * @brief 执行具体的左旋转键值重组操作
      */
     void LeftRotate(Node *parent, int8_t index);
 
     /**
-     * @brief Main function implement the pre-merge remove operation
-     * @param node the tree to remove item from
-     * @param item item to remove
-     * @return true if remove success, false otherwise
-     * */
+     * @brief 预合并（Pre-merge）删除算法的核心递归执行函数
+     * @details 自顶向下寻找被删除节点，如果遇到 2-node 子节点，为了防止删除后下溢，
+     * 提前通过旋转或与兄弟节点合并来消除 2-node，保证被删除节点肯定位于一个 >= 3-node 中。
+     */
     bool RemovePreMerge(Node *node, int64_t item);
 
     /**
-     * @brief Merge the item at index of the parent node, and its left and right
-     * child
-     *
-     * the left and right child node must be 2-node. The 3 items will be merged
-     * into a 4-node. In our case the parent can be a 2-node iff it is the root.
-     * Otherwise, it must be 3-node or 4-node.
-     *
-     * @param parent the parent node in the merging operation
-     * @param index the item index of the parent node that involved in the
-     * merging
-     * @return the merged 4-node
+     * @brief 合并父节点指定索引位置的键值及其左右两侧的孩子节点
+     * @return 合并后的新 4-node 节点指针
      */
     Node *Merge(Node *parent, int8_t index);
 
     /**
-     * @brief Recursive release the tree
-     * @param tree root node of the tree to delete
+     * @brief 递归释放树节点内存
      */
     void DeleteNode(Node *tree);
 
     /**
-     * @brief In-order traverse the tree, print items
-     * @param tree tree to traverse
+     * @brief 中序遍历并打印树的辅助函数
      */
     void Traverse(Node *tree);
 
     /**
-     * @brief Print the tree to a dot file. You can convert it to picture with
-     * graphviz
-     * @param ofs output file stream to print to
-     * @param node current node to print
-     * @param parent_index current node's parent node index, this is used to
-     * draw the link from parent to current node
-     * @param index current node's index of level order which is used to name
-     * the node in dot file
-     * @param parent_child_index the index that current node in parent's
-     * children array, range in [0,4), help to locate the start position of the
-     * link between nodes
+     * @brief 打印节点信息到 .dot 文件的辅助递归函数
      */
     void PrintNode(std::ofstream &ofs, Node *node, int64_t parent_index,
                    int64_t index, int8_t parent_child_index);
 
-    Node *root_{nullptr};  ///< root node of the tree
+    Node *root_{nullptr};  ///< 树的根节点指针
 };
 
 Tree234::~Tree234() { DeleteNode(root_); }
 
-/**
- * @brief Recursive release the tree
- * @param tree root node of the tree to delete
- */
 void Tree234::DeleteNode(Node *tree) {
     if (!tree) {
         return;
@@ -551,14 +411,9 @@ void Tree234::DeleteNode(Node *tree) {
     for (int8_t i = 0; i <= tree->GetCount(); i++) {
         DeleteNode(tree->GetChild(i));
     }
-
     delete tree;
 }
 
-/**
- * @brief In-order traverse the tree, print items
- * @param tree tree to traverse
- */
 void Tree234::Traverse() {
     Traverse(root_);
     std::cout << std::endl;
@@ -574,14 +429,9 @@ void Tree234::Traverse(Node *node) {
         Traverse(node->GetChild(i));
         std::cout << node->GetItem(i) << ", ";
     }
-
     Traverse(node->GetChild(i));
 }
 
-/**
- * @brief A insert implementation of pre-split
- * @param item item to insert
- */
 void Tree234::InsertPreSplit(int64_t item) {
     if (!root_) {
         root_ = new Node(item);
@@ -602,11 +452,11 @@ void Tree234::InsertPreSplit(int64_t item) {
             return;
         }
 
+        // 如果在向下寻找路径中遇到已满的 4-node，则立即进行分裂
         if (node->IsFull()) {
             node = SplitNode(node);
 
             Node *cur_node = nullptr;
-
             if (item < node->GetItem(0)) {
                 cur_node = node->GetChild(0);
             } else {
@@ -614,11 +464,8 @@ void Tree234::InsertPreSplit(int64_t item) {
             }
 
             if (!parent) {
-                // for the root node parent is nullptr, we simply assign the
-                // split parent to root_
-                root_ = node;
+                root_ = node; // 若分裂的是原根节点，更新根节点
             } else {
-                // merge the split parent to its origin parent
                 MergeNodeNotFull(parent, node);
             }
 
@@ -630,10 +477,6 @@ void Tree234::InsertPreSplit(int64_t item) {
     }
 }
 
-/**
- * @brief A insert implementation of post-merge
- * @param item item to insert
- */
 void Tree234::InsertPostMerge(int64_t item) {
     if (!root_) {
         root_ = new Node(item);
@@ -641,32 +484,18 @@ void Tree234::InsertPostMerge(int64_t item) {
     }
 
     Node *split_node = Insert(root_, item);
-
-    // if root has split, then update root_
     if (split_node) {
         root_ = split_node;
     }
 }
 
-/**
- * @brief Insert item to tree
- * @param item item to insert
- */
 void Tree234::Insert(int64_t item) { InsertPreSplit(item); }
 
-/**
- * @brief A helper function used by post-merge insert
- * @param tree tree where to insert item
- * @param item item to insert
- * @return the node that split as the parent when overflow happen
- */
 Node *Tree234::Insert(Node *tree, int64_t item) {
     assert(tree != nullptr);
-
     std::unique_ptr<Node> split_node;
 
     if (tree->Contains(item)) {
-        // return nullptr indicate current node not overflow
         return nullptr;
     }
 
@@ -684,19 +513,6 @@ Node *Tree234::Insert(Node *tree, int64_t item) {
     return nullptr;
 }
 
-/**
- * @brief A helper function used during post-merge insert
- *
- * When the inserting leads to overflow, it will split the node to 1 parent
- * and 2 children. The parent will be merged to its origin parent after
- * that. This is the function to complete this task. So the param node is
- * always a 2-node.
- *
- * @param dst_node the target node we will merge node to, can be type of
- * 2-node, 3-node or 4-node
- * @param node the source node we will merge from, type must be 2-node
- * @return overflow node of this level
- */
 Node *Tree234::MergeNode(Node *dst_node, Node *node) {
     assert(dst_node != nullptr && node != nullptr);
 
@@ -709,7 +525,6 @@ Node *Tree234::MergeNode(Node *dst_node, Node *node) {
 
     if (node->GetItem(0) < dst_node->GetItem(0)) {
         MergeNodeNotFull(dst_node->GetChild(0), node);
-
     } else {
         MergeNodeNotFull(dst_node->GetChild(1), node);
     }
@@ -717,36 +532,18 @@ Node *Tree234::MergeNode(Node *dst_node, Node *node) {
     return dst_node;
 }
 
-/**
- * @brief Merge node to a not-full target node
- *
- * Since the target node is not-full, no overflow will happen. So we have
- * nothing to return.
- *
- * @param dst_node the target not-full node, that is the type is either
- * 2-node or 3-node, but not 4-node
- * @param node the source node we will merge from, type must be 2-node
- */
 void Tree234::MergeNodeNotFull(Node *dst_node, Node *node) {
     assert(dst_node && node && !dst_node->IsFull() && node->Is2Node());
 
     int8_t i = dst_node->InsertItem(node->GetItem(0));
-
     dst_node->SetChild(i, node->GetChild(0));
     dst_node->SetChild(i + 1, node->GetChild(1));
 }
 
-/**
- * @brief Split a 4-node to 1 parent and 2 children, and return the parent
- * node
- * @param node the node to split, it must be a 4-node
- * @return split parent node
- */
 Node *Tree234::SplitNode(Node *node) {
     assert(node->GetCount() == 3);
 
     Node *left = node;
-
     Node *right = new Node(node->GetItem(2));
     right->SetChild(0, node->GetChild(2));
     right->SetChild(1, node->GetChild(3));
@@ -756,92 +553,41 @@ Node *Tree234::SplitNode(Node *node) {
     parent->SetChild(1, right);
 
     left->SetCount(1);
-
     return parent;
 }
 
-/**
- * @brief A handy function to try if we can do a left rotate to the target
- * node
- *
- * Given two node, the parent and the target child, the left rotate
- * operation is uniquely identified. The source node must be the right
- * sibling of the target child. The operation can be successfully done if
- * the to_child has a right sibling and its right sibling is not 2-node.
- *
- * @param parent the parent node in this left rotate operation
- * @param to_child the target child of this left rotate operation. In our
- * case, this node is always 2-node
- * @return true if we successfully do the rotate. false if the
- * requirements are not fulfilled.
- */
 bool Tree234::TryLeftRotate(Node *parent, Node *to_child) {
     int to_child_index = parent->GetChildIndex(to_child);
 
-    // child is right most, can not do left rotate to it
     if (to_child_index >= parent->GetCount()) {
         return false;
     }
 
     Node *right_sibling = parent->GetChild(to_child_index + 1);
-
-    // right sibling is 2-node. can not do left rotate.
     if (right_sibling->Is2Node()) {
         return false;
     }
 
     LeftRotate(parent, to_child_index);
-
     return true;
 }
 
-/**
- * @brief A handy function to try if we can do a right rotate to the target
- * node
- *
- * Given two node, the parent and the target child, the right rotate
- * operation is uniquely identified. The source node must be the left
- * sibling of the target child. The operation can be successfully done if
- * the to_child has a left sibling and its left sibling is not 2-node.
- *
- * @param parent the parent node in this right rotate operation
- * @param to_child the target child of this right rotate operation. In our
- * case, it is always 2-node
- * @return true if we successfully do the rotate. false if the
- * requirements are not fulfilled.
- */
 bool Tree234::TryRightRotate(Node *parent, Node *to_child) {
     int8_t to_child_index = parent->GetChildIndex(to_child);
 
-    // child is left most, can not do right rotate to it
     if (to_child_index <= 0) {
         return false;
     }
 
     Node *left_sibling = parent->GetChild(to_child_index - 1);
-
-    // right sibling is 2-node. can not do left rotate.
     if (left_sibling->Is2Node()) {
         return false;
     }
 
     RightRotate(parent, to_child_index - 1);
-
     return true;
 }
 
-/**
- * @brief Do the actual right rotate operation
- *
- * Given parent node, and the pivot item index, the right rotate operation
- * is uniquely identified. The function assume the requirements are
- * fulfilled and won't do any extra check. This function is call by
- * TryRightRotate(), and the condition checking should be done before call
- * it.
- *
- * @param parent the parent node in this right rotate operation
- * @param index the pivot item index of this right rotate operation.
- */
 void Tree234::RightRotate(Node *parent, int8_t index) {
     Node *left = parent->GetItemLeftChild(index);
     Node *right = parent->GetItemRightChild(index);
@@ -855,17 +601,6 @@ void Tree234::RightRotate(Node *parent, int8_t index) {
     left->RemoveItemByIndex(left->GetCount() - 1, true);
 }
 
-/**
- * @brief Do the actual left rotate operation
- *
- * Given parent node, and the pivot item index, the left rotate operation is
- * uniquely identified. The function assume the requirements are fulfilled
- * and won't do any extra check. This function is call by TryLeftRotate(),
- * and the condition checking should be done before call it.
- *
- * @param parent the parent node in this right rotate operation
- * @param index the pivot item index of this right rotate operation.
- */
 void Tree234::LeftRotate(Node *parent, int8_t index) {
     Node *left = parent->GetItemLeftChild(index);
     Node *right = parent->GetItemRightChild(index);
@@ -879,23 +614,8 @@ void Tree234::LeftRotate(Node *parent, int8_t index) {
     right->RemoveItemByIndex(0, false);
 }
 
-/**
- * @brief Merge the item at index of the parent node, and its left and right
- * child
- *
- * the left and right child node must be 2-node. The 3 items will be merged
- * into a 4-node. In our case the parent can be a 2-node iff it is the root.
- * Otherwise, it must be 3-node or 4-node.
- *
- * @param parent the parent node in the merging operation
- * @param index the item index of the parent node that involved in the
- * merging
- * @return the merged 4-node
- */
 Node *Tree234::Merge(Node *parent, int8_t index) {
     assert(parent);
-
-    // bool is_parent_2node = parent->Is2Node();
 
     Node *left_child = parent->GetItemLeftChild(index);
     Node *right_child = parent->GetItemRightChild(index);
@@ -904,7 +624,7 @@ Node *Tree234::Merge(Node *parent, int8_t index) {
 
     int64_t item = parent->GetItem(index);
 
-    // 1. merge parent's item and right child to left child
+    // 1. 合并父节点的项与右孩子到左孩子节点中，构成 4-node
     left_child->SetItem(1, item);
     left_child->SetItem(2, right_child->GetItem(0));
     left_child->SetChild(2, right_child->GetChild(0));
@@ -912,34 +632,22 @@ Node *Tree234::Merge(Node *parent, int8_t index) {
 
     left_child->SetCount(3);
 
-    // 2. remove the parent's item
+    // 2. 从父节点中删除合并下去的元素
     parent->RemoveItemByIndex(index, true);
 
-    // 3. delete the unused right child
+    // 3. 释放被合并消隐的右孩子节点
     delete right_child;
 
     return left_child;
 }
 
-/**
- * @brief Remove item from tree
- * @param item item to remove
- * @return true if item found and removed, false otherwise
- */
 bool Tree234::Remove(int64_t item) { return RemovePreMerge(root_, item); }
 
-/**
- * @brief Main function implement the pre-merge remove operation
- * @param node the tree to remove item from
- * @param item item to remove
- * @return true if remove success, false otherwise
- */
 bool Tree234::RemovePreMerge(Node *node, int64_t item) {
     while (node) {
         if (node->IsLeaf()) {
             if (node->Contains(item)) {
                 if (node->Is2Node()) {
-                    // node must be root
                     delete node;
                     root_ = nullptr;
                 } else {
@@ -950,62 +658,26 @@ bool Tree234::RemovePreMerge(Node *node, int64_t item) {
             return false;
         }
 
-        // node is internal
+        // 处理内部节点
         if (node->Contains(item)) {
             int8_t index = node->GetItemIndex(item);
 
-            // Here is important!!! What we do next depend on its children's
-            // state. Why?
             Node *left_child = node->GetItemLeftChild(index);
             Node *right_child = node->GetItemRightChild(index);
             assert(left_child && right_child);
 
             if (left_child->Is2Node() && right_child->Is2Node()) {
-                // both left and right child are 2-node,we should not modify
-                // current node in this situation. Because we are going to do
-                // merge with its children which will move target item to next
-                // layer. so if we replace the item with successor or
-                // predecessor now, when we do the recursive remove with
-                // successor or predecessor, we will result in removing the just
-                // replaced one in the merged node. That's not what we want.
-
-                // we need to convert the child 2-node to 3-node or 4-node
-                // first. First we try to see if any of them can convert to
-                // 3-node by rotate. By using rotate we keep the empty house for
-                // the future insertion which will be more efficient than merge.
-                //
-                //            | ? | node | ? |
-                //           /    |      |    \
-                //          /     |      |     \
-                //         /      |      |      \
-                //        /       |      |       \
-                //       /        |      |        \
-                //      /         |      |         \
-                //     ?  left_child  right_child   ?
-                //
-
-                // node must be the root
+                // 左右孩子均为 2-node，必须对它们进行预合并处理
                 if (node->Is2Node()) {
-                    // this means we can't avoid merging the target item into
-                    // next layer, and this will cause us do different process
-                    // compared with other cases
                     Node *new_root = Merge(node, index);
                     delete root_;
                     root_ = new_root;
                     node = root_;
-
-                    // now node point to the
                     continue;
                 }
 
-                // here means we can avoid merging the target item into next
-                // layer. So we convert one of its left or right child to 3-node
-                // and then do the successor or predecessor swap and recursive
-                // remove the next layer will successor or predecessor.
                 do {
                     if (index > 0) {
-                        // left_child has left-sibling, we check if we can do a
-                        // rotate
                         Node *left_sibling = node->GetItemLeftChild(index - 1);
                         if (left_sibling->Is34Node()) {
                             RightRotate(node, index - 1);
@@ -1014,8 +686,6 @@ bool Tree234::RemovePreMerge(Node *node, int64_t item) {
                     }
 
                     if (index < node->GetCount() - 1) {
-                        // right_child has right-sibling, we check if we can do
-                        // a rotate
                         Node *right_sibling =
                             node->GetItemRightChild(index + 1);
                         if (right_sibling->Is34Node()) {
@@ -1024,20 +694,16 @@ bool Tree234::RemovePreMerge(Node *node, int64_t item) {
                         }
                     }
 
-                    // we do a merge. We avoid merging the target item, which
-                    // may trigger another merge in the recursion process.
                     if (index > 0) {
                         Merge(node, index - 1);
                         break;
                     }
 
                     Merge(node, index + 1);
-
                 } while (false);
             }
 
-            // refresh the left_child and right_child since they may be invalid
-            // because of merge
+            // 更新由于合并或旋转发生改变的孩子节点引用
             left_child = node->GetItemLeftChild(index);
             right_child = node->GetItemRightChild(index);
 
@@ -1060,7 +726,6 @@ bool Tree234::RemovePreMerge(Node *node, int64_t item) {
         }
 
         Node *next_node = node->GetNextPossibleChild(item);
-
         if (next_node->Is34Node()) {
             node = next_node;
             continue;
@@ -1076,65 +741,42 @@ bool Tree234::RemovePreMerge(Node *node, int64_t item) {
             continue;
         }
 
-        // get here means both left sibling and right sibling of next_node is
-        // 2-node, so we do merge
         int8_t child_index = node->GetChildIndex(next_node);
         if (child_index > 0) {
             node = Merge(node, child_index - 1);
         } else {
             node = Merge(node, child_index);
         }
-
-    }  // while
-
+    }
     return false;
 }
 
-/**
- * @brief Get the max item of the tree
- * @param tree the tree we will get item from
- * @return max item of the tree
- */
 int64_t Tree234::GetTreeMaxItem(Node *tree) {
     assert(tree);
     int64_t max = 0;
-
     while (tree) {
         max = tree->GetMaxItem();
         tree = tree->GetRightmostChild();
     }
-
     return max;
 }
 
-/**
- * @brief Get the min item of the tree
- * @param tree the tree we will get item from
- * @return min item of the tree
- */
 int64_t Tree234::GetTreeMinItem(Node *tree) {
     assert(tree);
     int64_t min = 0;
-
     while (tree) {
         min = tree->GetMinItem();
         tree = tree->GetLeftmostChild();
     }
-
     return min;
 }
 
-/**
- * @brief Print tree into a dot file
- * @param file_name output file name, if nullptr then use "out.dot" as default
- */
 void Tree234::Print(const char *file_name) {
     if (!file_name) {
         file_name = "out.dot";
     }
 
     std::ofstream ofs;
-
     ofs.open(file_name);
     if (!ofs) {
         std::cout << "create tree dot file failed, " << file_name << std::endl;
@@ -1146,24 +788,19 @@ void Tree234::Print(const char *file_name) {
 
     int64_t index = 0;
 
-    /** @brief This is a helper structure to do a level order traversal to print
-     * the tree. */
     struct NodeInfo {
-        Node *node;     ///< tree node
-        int64_t index;  ///< node index of level order that used when draw the
-                        ///< link between child and parent
+        Node *node;     ///< 树节点
+        int64_t index;  ///< 层序遍历中的节点命名序列号，用于边连线
     };
 
     std::queue<NodeInfo> q;
 
     if (root_) {
-        // print root node
         PrintNode(ofs, root_, -1, index, 0);
 
         NodeInfo ni{};
         ni.node = root_;
         ni.index = index;
-
         q.push(ni);
 
         while (!q.empty()) {
@@ -1210,19 +847,6 @@ void Tree234::Print(const char *file_name) {
     ofs.close();
 }
 
-/**
- * @brief Print the tree to a dot file. You can convert it to picture with
- * graphviz
- * @param ofs output file stream to print to
- * @param node current node to print
- * @param parent_index current node's parent node index, this is used to draw
- * the link from parent to current node
- * @param index current node's index of level order which is used to name the
- * node in dot file
- * @param parent_child_index the index that current node in parent's children
- * array, range in [0,4), help to locate the start position of the link between
- * nodes
- */
 void Tree234::PrintNode(std::ofstream &ofs, Node *node, int64_t parent_index,
                         int64_t index, int8_t parent_child_index) {
     assert(node);
@@ -1246,7 +870,7 @@ void Tree234::PrintNode(std::ofstream &ofs, Node *node, int64_t parent_index,
             break;
     }
 
-    // draw the edge
+    // 绘制父节点到子节点的连接边
     if (parent_index >= 0) {
         ofs << "node_" << parent_index << ":f"
             << (parent_child_index == 0 ? 0 : parent_child_index - 1) << ":"
@@ -1258,8 +882,7 @@ void Tree234::PrintNode(std::ofstream &ofs, Node *node, int64_t parent_index,
 }  // namespace data_structures
 
 
-/** @brief simple test to insert a given array and delete some item, and print
- * the tree*/
+/** @brief 简单测试插入给定数组，然后删除其中某项，并打印树 */
 static void test1() {
     std::array<int16_t, 13> arr = {3, 1, 5, 4, 2, 9, 10, 8, 7, 6, 16, 13, 14};
     data_structures::tree_234::Tree234 tree;
@@ -1268,15 +891,13 @@ static void test1() {
         tree.Insert(i);
     }
 
-    // tree.Remove(10);
     tree.Remove(5);
     tree.Print();
 }
 
 /**
- * @brief simple test to insert continuous number of range [0, n), and print
- * the tree
- * @param n upper bound of the range number to insert
+ * @brief 简单插入区间为 [0, n) 的连续数值并中序输出和打印
+ * @param n 插入的上限数
  */
 static void test2(int64_t n) {
     data_structures::tree_234::Tree234 tree;
@@ -1290,17 +911,16 @@ static void test2(int64_t n) {
 }
 
 /**
- * @brief Main function
- * @param argc commandline argument count
- * @param argv commandline array of arguments
- * @returns 0 on exit
+ * @brief 主函数
+ * @param argc 命令行参数计数
+ * @param argv 命令行参数数组
+ * @returns 0
  */
 int main(int argc, char *argv[]) {
     if (argc < 2) {
-        test1();  // execute 1st test
+        test1();  // 执行测试一
     } else {
-        test2(std::stoi(argv[1]));  // execute 2nd test
+        test2(std::stoi(argv[1]));  // 执行测试二
     }
-
     return 0;
 }
