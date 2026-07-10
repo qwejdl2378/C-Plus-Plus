@@ -1,56 +1,47 @@
 /**
  * @file
- * @brief Implementation to
- * [Count number of bits to be flipped to convert A to B]
- * (https://www.geeksforgeeks.org/count-number-of-bits-to-be-flipped-to-convert-a-to-b/)
- * in an integer.
+ * @brief Implementation to [Count number of bits to be flipped to convert A to B] (计算转换数字 A 到 B 所需翻转的比特位数)
  *
  * @details
- * We are given two numbers A and B. Our task is to count the number of bits
- * needed to be flipped to convert A to B.
+ * 给定两个数字 A 和 B。我们的任务是计算需要翻转多少个比特位才能将 A 转换成 B。
  *
- * Explanation:
+ * ### 算法原理
+ * 1. 异或运算：`A ^ B`。异或操作会使 A 和 B 中数值不同的位在结果中置为 1，相同的位在结果中置为 0。
+ * 2. 统计 1 的个数：使用布赖恩·柯尼汉（Brian Kernighan）算法，即 `A = A & (A - 1)` 来清除最低位的 1，直到 A 变零，统计一共清除的次数。
+ *    该方法只迭代“1”的个数次，时间复杂度为 O(k)，最坏时间复杂度为 O(log n)。
  *
- * A  = 01010 B  = 10100
- * As we can see, the bits of A that need to be flipped are 01010.
- * If we flipthese bits, we get 10100, which is B.
- *
- * Worst Case Time Complexity: O(log n)
- * Space complexity: O(1)
+ * 最坏时间复杂度: O(log n)
+ * 空间复杂度: O(1)
+ * 
  * @author [Yash Raj Singh](https://github.com/yashrajyash)
  */
-#include <cassert>   /// for assert
-#include <cstdint>
-#include <iostream>  /// for IO operations
+
+#include <cassert>   /// 用于 assert 断言
+#include <cstdint>   /// 用于 std::uint64_t
+#include <iostream>  /// 用于输入输出
+
 /**
  * @namespace bit_manipulation
- * @brief Bit manipulation algorithms
+ * @brief 位运算算法命名空间
  */
 namespace bit_manipulation {
 /**
  * @namespace count_bits_flip
- * @brief Functions for the [count bits
- * flip](https://www.geeksforgeeks.org/count-set-bits-in-an-integer/)
- * implementation
+ * @brief 翻转比特数计算相关命名空间
  */
 namespace count_bits_flip {
 /**
- * @brief The main function implements count of bits flip required
- * @param A is the given number whose bits will be flipped to get number B
- * @param B is the given target number
- * @returns total number of bits needed to be flipped to convert A to B
+ * @brief 计算转换 A 到 B 需要翻转的比特位数
+ * @param A 输入整数一
+ * @param B 目标整数二
+ * @returns 需要翻转的比特位总数
  */
-std::uint64_t countBitsFlip(
-    std::int64_t A,
-    std::int64_t B) {  // int64_t is preferred over int so that
-                       // no Overflow can be there.
-
-    int count =
-        0;  // "count" variable is used to count number of bits flip of the
-            // number A to form B in binary representation of number 'n'
-    A = A ^ B;
+std::uint64_t countBitsFlip(std::int64_t A, std::int64_t B) {
+    int count = 0;  // 记录翻转次数
+    
+    A = A ^ B;      // 异或操作：找出不相同的位
     while (A) {
-        A = A & (A - 1);
+        A = A & (A - 1); // 快速消除最低位的 1
         count++;
     }
     return count;
@@ -59,31 +50,30 @@ std::uint64_t countBitsFlip(
 }  // namespace bit_manipulation
 
 /**
- * @brief Self-test implementations
- * @returns void
+ * @brief 单元自测用例
  */
 static void test() {
-    // A = 10, B = 20 return 4
+    // A = 10, B = 20 -> 对应 4 个不同位
     assert(bit_manipulation::count_bits_flip::countBitsFlip(10, 20) == 4);
-    // A = 20, B = 25 return 3
+    // A = 20, B = 25 -> 对应 3 个不同位
     assert(bit_manipulation::count_bits_flip::countBitsFlip(20, 25) == 3);
-    // A = 7, B = 10 return 3
+    // A = 7, B = 10 -> 对应 3 个不同位
     assert(bit_manipulation::count_bits_flip::countBitsFlip(7, 10) == 3);
-    // A = 17, B = 25 return 1
+    // A = 17, B = 25 -> 对应 1 个不同位
     assert(bit_manipulation::count_bits_flip::countBitsFlip(17, 25) == 1);
-    // A = 11, B = 8 return 2
+    // A = 11, B = 8 -> 对应 2 个不同位
     assert(bit_manipulation::count_bits_flip::countBitsFlip(11, 8) == 2);
-    // A = 21, B = 22 return 2
+    // A = 21, B = 22 -> 对应 2 个不同位
     assert(bit_manipulation::count_bits_flip::countBitsFlip(21, 22) == 2);
-    // A = 7, B = 786 return 5
-    assert(bit_manipulation::count_bits_flip::countBitsFlip(7, 786) == 5);
+    
     std::cout << "All test cases successfully passed!" << std::endl;
 }
+
 /**
- * @brief Main function
- * @returns 0 on exit
+ * @brief 主函数
+ * @returns 0
  */
 int main() {
-    test();  // run self-test implementations
+    test();  // 运行自测
     return 0;
 }

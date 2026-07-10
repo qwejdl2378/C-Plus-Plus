@@ -1,80 +1,68 @@
 /**
  * @file
- * @brief Implementation to [From the right, set the Kth bit in the binary
- * representation of N]
- * (https://practice.geeksforgeeks.org/problems/set-kth-bit3724/1/) in an
- * integer.
+ * @brief Implementation to [From the right, set the Kth bit in the binary representation of N] (将数字 N 的第 K 个二进制位设为 1)
  *
  * @details
- * Given a number N and a value K. From the right, set the Kth bit in the binary
- * representation of N. The position of Least Significant Bit(or last bit) is 0,
- * the second last bit is 1 and so on. in it.
+ * 给定一个正整数 N 和一个偏移量 K。我们要将 N 的二进制表示中从右侧算起的第 K 个 bit 位强制置为 1（最低有效位 LSB 的位置是 0，第二低位是 1，依此类推）。
+ * 
+ * ### 位运算原理
+ * 1. 首先构建一个只有第 K 位为 1，其余位为 0 的掩码 (Mask)：`pos = 1 << k`。
+ * 2. 对原数 N 和掩码执行按位或运算：`N | pos`。这能确保第 K 位被设为 1，而 N 的其他二进制位保持不变。
  *
- * A binary number consists of two digits. They are 0 & 1. Digit 1 is known as
- * set bit in computer terms.
- * Worst Case Time Complexity: O(1)
- * Space complexity: O(1)
-
- * @author [Aman Raj](https://github.com/aman2000raj)
+ * 时间复杂度: O(1)
+ * 空间复杂度: O(1)
+ * 
+ * @author Aman Raj (https://github.com/aman2000raj)
  */
 
-#include <cassert>   /// for assert
-#include <cstdint>
-#include <iostream>  /// for IO operations
+#include <cassert>   /// 用于 assert 断言
+#include <cstdint>   /// 用于 std::uint64_t 和 std::int64_t
+#include <iostream>  /// 用于输入输出
 
 /**
  * @namespace bit_manipulation
- * @brief Bit manipulation algorithms
+ * @brief 位运算算法命名空间
  */
 namespace bit_manipulation {
 /**
- * @namespace setKthBit
- * @brief Functions for the [From the right, set the Kth bit in the binary
- * representation of N]
- * (https://practice.geeksforgeeks.org/problems/set-kth-bit3724/1/)
- * implementation
+ * @namespace set_kth_bit
+ * @brief 设置第 K 个比特位相关命名空间
  */
 namespace set_kth_bit {
 /**
- * @brief The main function implements set kth bit
- * @param N is the number whose kth bit will be set
- * @returns returns an integer after setting the K'th bit in N
+ * @brief 将 N 的第 k 个二进制位设为 1
+ * @param N 待修改的 64 位有符号数
+ * @param k 目标比特位的索引（0 起始，即右数第 k 位）
+ * @returns 修改后的数值
  */
-std::uint64_t setKthBit(std ::int64_t N,
-                        std ::int64_t k) {  // int64_t is preferred over int so
-                                            // that no Overflow can be there.
-
-    int pos =
-        1 << k;  // "pos" variable is used to store 1 at kth postion and
-                 // rest bits are 0. in binary representation of number 'n'
-
-    return N | pos;  // by taking or with the pos and the N we set the bit of N
-                     // at kth position.
+std::uint64_t setKthBit(std ::int64_t N, std ::int64_t k) {
+    int pos = 1 << k;  // 构造只有第 k 位为 1 的掩码
+    return N | pos;    // 通过按位或操作设置该位为 1
 }
 }  // namespace set_kth_bit
 }  // namespace bit_manipulation
 
 /**
- * @brief Self-test implementations
- * @returns void
+ * @brief 单元自测用例
  */
 static void test() {
-    // n = 10,2 return 14
+    // 10 (二进制 1010)，设置第 2 位 -> 14 (二进制 1110)
     assert(bit_manipulation::set_kth_bit::setKthBit(10, 2) == 14);
-    // n = 25,1 return 27
+    // 25 (二进制 11001)，设置第 1 位 -> 27 (二进制 11011)
     assert(bit_manipulation::set_kth_bit::setKthBit(25, 1) == 27);
-    // n = 400001,5 return 400033
+    // 400001 (二进制 1100001101010000001)，设置第 5 位 -> 400033
     assert(bit_manipulation::set_kth_bit::setKthBit(400001, 5) == 400033);
-    // n = 123 return 123
+    // 123 (二进制 1111011)，设置第 3 位（本来就是1） -> 123
     assert(bit_manipulation::set_kth_bit::setKthBit(123, 3) == 123);
 
     std::cout << "All test cases successfully passed!" << std::endl;
 }
+
 /**
- * @brief Main function
- * @returns 0 on exit
+ * @brief 主函数
+ * @returns 0
  */
 int main() {
-    test();  // run self-test implementations
+    test();  // 运行自测
     return 0;
 }

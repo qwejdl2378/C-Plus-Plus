@@ -1,91 +1,82 @@
 /**
  * @file
- * @brief Implementation to [count number of set bits of a number]
- * (https://www.geeksforgeeks.org/count-set-bits-in-an-integer/) in an
- * integer.
+ * @brief Implementation to [count number of set bits of a number] (计算二进制表示中包含的 1 的个数)
  *
  * @details
- * We are given an integer number. We need to calculate the number of set bits
- * in it.
+ * 给定一个无符号 64 位整数，计算其二进制表示中 set bit（即数字 '1'）的总个数。
+ * 
+ * ### 柯尼汉算法原理 (Brian Kernighan's Algorithm)
+ * 采用 `n & (n - 1)` 运算。每次该操作都会将 `n` 中最低位的 '1' 消除并变为 '0'。
+ * 循环直至 `n` 变零，循环执行的次数就是二进制中 1 的总个数。
+ * 例如：如果数值 13 (二进制 1101) 含有 3 个 1，则循环体只需运行 3 次即可，效率优于普通的逐位右移比较。
  *
- * A binary number consists of two digits. They are 0 & 1. Digit 1 is known as
- * set bit in computer terms.
- * Worst Case Time Complexity: O(log n)
- * Space complexity: O(1)
+ * 最坏时间复杂度: O(log n)，即与数字的二进制位数成比例，但实际仅与 1 的个数 K 相关，为 O(K)。
+ * 空间复杂度: O(1)
+ * 
  * @author [Swastika Gupta](https://github.com/Swastyy)
  * @author [Prashant Thakur](https://github.com/prashant-th18)
  */
-#include <cassert>   /// for assert
-#include <cstdint>
-#include <iostream>  /// for IO operations
+
+#include <cassert>   /// 用于 assert 断言
+#include <cstdint>   /// 用于 std::uint64_t
+#include <iostream>  /// 用于输入输出
+
 /**
  * @namespace bit_manipulation
- * @brief Bit manipulation algorithms
+ * @brief 位运算算法命名空间
  */
 namespace bit_manipulation {
 /**
  * @namespace count_of_set_bits
- * @brief Functions for the [count sets
- * bits](https://www.geeksforgeeks.org/count-set-bits-in-an-integer/)
- * implementation
+ * @brief 包含 1 的个数计算相关命名空间
  */
 namespace count_of_set_bits {
 /**
- * @brief The main function implements set bit count
- * @param n is the number whose set bit will be counted
- * @returns total number of set-bits in the binary representation of number `n`
+ * @brief 计算数字 n 的二进制中 1 的个数
+ * @param n 输入的无符号 64 位整数
+ * @returns 1 的个数统计值
  */
-std::uint64_t countSetBits(
-    std ::uint64_t n) {  // uint64_t is preferred over int so that
-                        // no Overflow can be there.
-                        //It's preferred over int64_t because it Guarantees that inputs are always non-negative, 
-                        //which matches the algorithmic problem statement.
-                        //set bit counting is conceptually defined only for non-negative numbers.
-                        //Provides a type Safety: Using an unsigned type helps prevent accidental negative values,
-
-    std::uint64_t count = 0;  // "count" variable is used to count number of set-bits('1')
-                            // in binary representation of number 'n'
-                            //Count is uint64_t because it Prevents theoretical overflow if someone passes very large integers.
-                            //  Behavior stays the same for all normal inputs.
-                            // Safer for edge cases.
+std::uint64_t countSetBits(std::uint64_t n) {
+    std::uint64_t count = 0;  // 累加 1 的计数
 
     while (n != 0) {
         ++count;
-        n = (n & (n - 1));
+        n = (n & (n - 1)); // 消除二进制表示中最右边的 '1'
     }
     return count;
-    // Why this algorithm is better than the standard one?
-    // Because this algorithm runs the same number of times as the number of
-    // set-bits in it. Means if my number is having "3" set bits, then this
-    // while loop will run only "3" times!!
 }
 }  // namespace count_of_set_bits
 }  // namespace bit_manipulation
 
+/**
+ * @brief 单元自测用例
+ */
 static void test() {
-    // n = 4 return 1
+    // 4  (二进制 0100) -> 1
     assert(bit_manipulation::count_of_set_bits::countSetBits(4) == 1);
-    // n = 6 return 2
+    // 6  (二进制 0110) -> 2
     assert(bit_manipulation::count_of_set_bits::countSetBits(6) == 2);
-    // n = 13 return 3
+    // 13 (二进制 1101) -> 3
     assert(bit_manipulation::count_of_set_bits::countSetBits(13) == 3);
-    // n = 9 return 2
+    // 9  (二进制 1001) -> 2
     assert(bit_manipulation::count_of_set_bits::countSetBits(9) == 2);
-    // n = 15 return 4
+    // 15 (二进制 1111) -> 4
     assert(bit_manipulation::count_of_set_bits::countSetBits(15) == 4);
-    // n = 25 return 3
+    // 25 (二进制 11001) -> 3
     assert(bit_manipulation::count_of_set_bits::countSetBits(25) == 3);
-    // n = 97 return 3
+    // 97 (二进制 1100001) -> 3
     assert(bit_manipulation::count_of_set_bits::countSetBits(97) == 3);
-    // n = 31 return 5
+    // 31 (二进制 11111) -> 5
     assert(bit_manipulation::count_of_set_bits::countSetBits(31) == 5);
+    
     std::cout << "All test cases successfully passed!" << std::endl;
 }
+
 /**
- * @brief Main function
- * @returns 0 on exit
+ * @brief 主函数
+ * @returns 0
  */
 int main() {
-    test();  // run self-test implementations
+    test();  // 运行自测
     return 0;
 }

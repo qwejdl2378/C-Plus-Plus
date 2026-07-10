@@ -1,79 +1,65 @@
 /**
  * @file
- * @brief Implementation to [Check if a number is Even or Odd using Bitwise Operator]
- * (https://www.log2base2.com/c-examples/bitwise/odd-or-even-program-in-c-using-bitwise-operator.html)
+ * @brief Implementation to [Check if a number is Even or Odd using Bitwise Operator] (通过位运算符检查奇偶性)
  *
  * @details
- * Given an integer N, determine whether it is even or odd using bitwise manipulation.
- * The least significant bit (LSB) of a binary number determines its parity:
- * - If the LSB is 0, the number is even.
- * - If the LSB is 1, the number is odd.
+ * 给定一个整数 N，利用位运算快速判断它是奇数还是偶数。
+ * 二进制数的最低有效位（LSB, Least Significant Bit）直接决定了其奇偶性：
+ * - 如果最低有效位是 0，说明它是偶数。
+ * - 如果最低有效位是 1，说明它是奇数。
  *
- * This can be checked efficiently using the bitwise AND operator (&) with 1.
- * - If (N & 1) == 0, N is even.
- * - If (N & 1) == 1, N is odd.
+ * 这可以通过与运算（&）和 1 组合进行高效判断。
+ * - 如果 (N & 1) == 0，N 为偶数。
+ * - 如果 (N & 1) == 1，N 为奇数。
  *
- * Example:
- * Consider 8-bit binary representations of two numbers:
- *     Number: 10 (decimal) -> 00001010 (binary)
- *       LSB = 0 -> Even number
- * 
- *     Number: 13 (decimal) -> 00001101 (binary)
- *       LSB = 1 -> Odd number
- *
- * In both cases, evaluating (N & 1) isolates the LSB:
- * - For 10: 00001010 & 00000001 = 0  (Even)
- * - For 13: 00001101 & 00000001 = 1  (Odd)
- *
- * Worst Case Time Complexity: O(1)
- * Space Complexity: O(1)
+ * 最坏时间复杂度: O(1)
+ * 空间复杂度: O(1)
  *
  * @author [Vedant Mukhedkar](https://github.com/git5v)
  */
 
-#include <cassert>   /// for assert
-#include <cstdint>   /// for uint32_t
-#include <iostream>  /// for IO operations
-#include <string>    /// for std::string
+#include <cassert>   /// 用于 assert 断言
+#include <cstdint>   /// 用于 uint32_t 和 int64_t
+#include <iostream>  /// 用于输入输出
+#include <string>    /// 用于 std::string
 
 /**
  * @namespace bit_manipulation
- * @brief Bit manipulation algorithms
+ * @brief 位运算算法命名空间
  */
 namespace bit_manipulation {
 /**
  * @namespace even_odd
- * @brief Functions for checking if a number is even or odd using bitwise operations
+ * @brief 奇偶校验位运算相关命名空间
  */
 namespace even_odd {
 
 /**
- * @brief Checks if a number is even or odd using bitwise AND.
- * @param N The number to check.
- * @returns "Even" if N is even, "Odd" if N is odd.
-     */
-        bool is_even(std::int64_t N) {
-            return (N & 1) == 0 ? true : false;
-        }
+ * @brief 使用按位与判断数字是否为偶数
+ * @param N 待检查的数值
+ * @returns `true` 偶数；`false` 奇数
+ */
+bool is_even(std::int64_t N) {
+    return (N & 1) == 0;
+}
 
-    }  // namespace even_odd
+}  // namespace even_odd
 }  // namespace bit_manipulation
 
 /**
- * @brief Self-test implementations
- * @returns void
+ * @brief 单元自测用例
  */
 static void test() {
     using bit_manipulation::even_odd::is_even;
 
-    // Test Even numbers
+    // 测试偶数
     assert(is_even(0) == true);
     assert(is_even(2) == true);
     assert(is_even(100) == true);
     assert(is_even(-4) == true);
     assert(is_even(-1000) == true);
 
-    // Test Odd numbers
+    // 测试奇数
     assert(is_even(1) == false);
     assert(is_even(3) == false);
     assert(is_even(101) == false);
@@ -84,10 +70,10 @@ static void test() {
 }
 
 /**
- * @brief Main function
- * @returns 0 on exit
+ * @brief 主函数
+ * @returns 0
  */
 int main() {
-    test();  // run self-test implementations
+    test();  // 运行自测
     return 0;
 }

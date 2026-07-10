@@ -1,75 +1,62 @@
 /**
  * @file
- * @brief [Find whether a given number is power of 2]
- * (https://www.geeksforgeeks.org/program-to-find-whether-a-given-number-is-power-of-2/)
- * implementation
+ * @brief [Find whether a given number is power of 2](https://www.geeksforgeeks.org/program-to-find-whether-a-given-number-is-power-of-2/) (通过位运算判断数字是否为 2 的幂次方)
  *
  * @details
- * We are given a positive integer number. We need to check whether the number
- * is power of 2 or not.
+ * 给定一个正整数，判断它是否为 2 的幂次方数（如 1, 2, 4, 8, 16...）。
+ * 
+ * ### 位运算原理
+ * 1. 2 的幂次方数在二进制表示中具有唯一特征：**仅包含一个比特位 '1'**（例如：4 的二进制是 100，8 的二进制是 1000）。
+ * 2. 如果我们将一个 2 的幂次方数减去 1，这个唯一的 '1' 会变成 '0'，而其右侧的所有位都会变成 '1'（例如：4 - 1 = 3，其二进制为 011）。
+ * 3. 此时，对两者执行按位与运算：`n & (n - 1)`，结果必然为 0（例如：100 & 011 = 000）。
+ * 4. 特判：为了排除 0 和负数，增加 `n > 0` 约束限制。
  *
- * A binary number consists of two digits. They are 0 & 1. Digit 1 is known as
- * set bit in computer terms.
- * Worst Case Time Complexity: O(1)
- * Space complexity: O(1)
+ * 时间复杂度: O(1)
+ * 空间复杂度: O(1)
+ * 
  * @author [Prafful Gupta](https://github.com/EcstaticPG-25811)
  */
 
-#include <cassert>   /// for assert
-#include <cstdint>
-#include <iostream>  /// for IO operations
+#include <cassert>   /// 用于 assert 断言
+#include <cstdint>   /// 用于 std::int64_t
+#include <iostream>  /// 用于输入输出
 
 /**
  * @namespace bit_manipulation
- * @brief Bit manipulation algorithms
+ * @brief 位运算算法命名空间
  */
 namespace bit_manipulation {
 /**
- * @brief The main function implements check for power of 2
- * @param n is the number who will be checked
- * @returns either true or false
+ * @brief 判断数字 n 是否为 2 的幂次方
+ * @param n 待判断的 64 位整数
+ * @returns `true` 是 2 的幂；`false` 否则
  */
-bool isPowerOfTwo(std ::int64_t n) {  // int64_t is preferred over int so that
-                                      // no Overflow can be there.
-
-    return n > 0 && !(n & n - 1);  // If we subtract a power of 2 numbers by 1
-    // then all unset bits after the only set bit become set; and the set bit
-    // becomes unset.
-
-    // If a number n is a power of 2 then bitwise and of n-1 and n will be zero.
-    // The expression n&(n-1) will not work when n is 0.
-    // To handle this case also, our expression will become n& (!n&(n-1))
+bool isPowerOfTwo(std ::int64_t n) {
+    return n > 0 && !(n & (n - 1));
 }
 }  // namespace bit_manipulation
 
 /**
- * @brief Self-test implementations
- * @returns void
+ * @brief 单元自测用例
  */
 static void test() {
-    // n = 4 return true
     assert(bit_manipulation::isPowerOfTwo(4) == true);
-    // n = 6 return false
     assert(bit_manipulation::isPowerOfTwo(6) == false);
-    // n = 13 return false
     assert(bit_manipulation::isPowerOfTwo(13) == false);
-    // n = 64 return true
     assert(bit_manipulation::isPowerOfTwo(64) == true);
-    // n = 15 return false
     assert(bit_manipulation::isPowerOfTwo(15) == false);
-    // n = 32 return true
     assert(bit_manipulation::isPowerOfTwo(32) == true);
-    // n = 97 return false
     assert(bit_manipulation::isPowerOfTwo(97) == false);
-    // n = 1024 return true
     assert(bit_manipulation::isPowerOfTwo(1024) == true);
+    
     std::cout << "All test cases successfully passed!" << std::endl;
 }
+
 /**
- * @brief Main function
- * @returns 0 on exit
+ * @brief 主函数
+ * @returns 0
  */
 int main() {
-    test();  // run self-test implementations
+    test();  // 运行自测
     return 0;
 }
