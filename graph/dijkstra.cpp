@@ -1,26 +1,19 @@
 /**
  * @file
- * @brief [Graph Dijkstras Shortest Path Algorithm
- * (Dijkstra's Shortest Path)]
- * (https://en.wikipedia.org/wiki/Dijkstra%27s_algorithm)
+ * @brief [Graph Dijkstras Shortest Path Algorithm (Dijkstra's Shortest Path)](https://en.wikipedia.org/wiki/Dijkstra%27s_algorithm) (Dijkstra 单源最短路径算法实现)
  *
  * @author [Ayaan Khan](http://github.com/ayaankhan98)
  *
  * @details
- * Dijkstra's Algorithm is used to find the shortest path from a source
- * vertex to all other reachable vertex in the graph.
- * The algorithm initially assumes all the nodes are unreachable from the
- * given source vertex so we mark the distances of all vertices as INF
- * (infinity) from source vertex (INF / infinity denotes unable to reach).
+ * Dijkstra 算法用于在加权图中计算从单一源节点到所有其他可达节点的最短路径。
+ * 算法初始时假设所有节点均不可达，将其到源节点的距离初始化为 INF（无穷大）。
  *
- * in similar fashion with BFS we assume the distance of source vertex as 0
- * and pushes the vertex in a priority queue with it's distance.
- * we maintain the priority queue as a min heap so that we can get the
- * minimum element at the top of heap
+ * 类似于广度优先搜索 (BFS) 的思想，我们令源节点到自身的距离为 0，
+ * 然后将该节点连同其距离推入优先队列中。
+ * 这里的优先队列维护为一个“最小堆” (min heap)，这样我们每次取出的都是当前已知距离最短的节点。
  *
- * Basically what we do in this algorithm is that we try to minimize the
- * distances of all the reachable vertices from the current vertex, look
- * at the code below to understand in better way.
+ * 算法的本质是“松弛” (relaxation) 操作：每次从未确定最短路径的节点中挑选距离最短的一个节点，
+ * 尝试通过它去缩短其所有邻接节点到源节点的已知路径长度。
  *
  */
 #include <cassert>
@@ -31,85 +24,94 @@
 #include <utility>
 #include <vector>
 
+// 定义无穷大常量，用作初始距离
 constexpr int64_t INF = std::numeric_limits<int64_t>::max();
 
 /**
  * @namespace graph
- * @brief Graph Algorithms
+ * @brief 图算法命名空间
  */
-
 namespace graph {
 /**
- * @brief Function that add edge between two nodes or vertices of graph
+ * @brief 在图的邻接表中添加一条有向带权边
  *
- * @param u any node or vertex of graph
- * @param v any node or vertex of graph
+ * @param adj 邻接表指针
+ * @param u 起始节点编号 (从 1 开始)
+ * @param v 终点节点编号 (从 1 开始)
+ * @param w 边的权重
  */
 void addEdge(std::vector<std::vector<std::pair<int, int>>> *adj, int u, int v,
              int w) {
+    // 转换为从 0 开始的内部索引
     (*adj)[u - 1].push_back(std::make_pair(v - 1, w));
+    // 如果是无向图，则取消下面这行的注释：
     // (*adj)[v - 1].push_back(std::make_pair(u - 1, w));
 }
 
 /**
- * @brief Function runs the dijkstra algorithm for some source vertex and
- * target vertex in the graph and returns the shortest distance of target
- * from the source.
+ * @brief Dijkstra 算法核心实现
+ * 计算从源节点 s 到目标节点 t 的最短路径长度。
  *
- * @param adj input graph
- * @param s source vertex
- * @param t target vertex
+ * @param adj 图的邻接表表示
+ * @param s 源节点索引 (已转换为从 0 开始)
+ * @param t 目标节点索引 (已转换为从 0 开始)
  *
- * @return shortest distance if target is reachable from source else -1 in
- * case if target is not reachable from source.
+ * @return 如果 t 可达，返回最短路径值；如果不可达，则返回 -1。
  */
 int dijkstra(std::vector<std::vector<std::pair<int, int>>> *adj, int s, int t) {
-    /// n denotes the number of vertices in graph
+    /// n 代表图中顶点的个数
     int n = adj->size();
 
-    /// setting all the distances initially to INF
+    /// 初始化所有节点的距离为无穷大 (INF)
     std::vector<int64_t> dist(n, INF);
 
-    /// creating a min heap using priority queue
-    /// first element of pair contains the distance
-    /// second element of pair contains the vertex
+    /// 创建一个最小堆优先队列
+    /// pair 的第一个元素存放距离，第二个元素存放节点编号
+    /// std::greater 比较器使得队列顶部始终是距离最小的节点
     std::priority_queue<std::pair<int, int>, std::vector<std::pair<int, int>>,
                         std::greater<std::pair<int, int>>>
         pq;
 
-    /// pushing the source vertex 's' with 0 distance in min heap
+    /// 将源节点以距离 0 推入优先队列
     pq.push(std::make_pair(0, s));
 
-    /// marking the distance of source as 0
+    /// 设置源节点到自身的距离为 0
     dist[s] = 0;
 
     while (!pq.empty()) {
-        /// second element of pair denotes the node / vertex
+        /// 获取当前队列顶端（距离最短）的节点
         int currentNode = pq.top().second;
 
-        /// first element of pair denotes the distance
+        /// 当前节点的已知最短距离
         int currentDist = pq.top().first;
 
         pq.pop();
 
-        /// for all the reachable vertex from the currently exploring vertex
-        /// we will try to minimize the distance
+        // 如果弹出的节点距离已经大于记录的最短距离，说明是过期的失效记录，直接跳过
+        if (currentDist > dist[currentNode]) continue;
+
+        /// 遍历当前节点的所有邻接边，尝试进行松弛 (relaxation) 操作
         for (std::pair<int, int> edge : (*adj)[currentNode]) {
-            /// minimizing distances
-            if (currentDist + edge.second < dist[edge.first]) {
-                dist[edge.first] = currentDist + edge.second;
-                pq.push(std::make_pair(dist[edge.first], edge.first));
+            int nextNode = edge.first;     // 邻接节点
+            int edgeWeight = edge.second;  // 边权值
+
+            /// 松弛操作：如果通过当前节点到达邻接节点的路径比已知路径更短
+            if (currentDist + edgeWeight < dist[nextNode]) {
+                dist[nextNode] = currentDist + edgeWeight; // 更新最短距离
+                pq.push(std::make_pair(dist[nextNode], nextNode)); // 将更新后的节点和距离推入队列
             }
         }
     }
+    
+    // 如果目标节点的最短路径被更新过，说明可达，返回具体值
     if (dist[t] != INF) {
         return dist[t];
     }
-    return -1;
+    return -1; // 目标节点不可达
 }
 }  // namespace graph
 
-/** Function to test the Algorithm */
+/** 自测用例 */
 void tests() {
     std::cout << "Initiatinig Predefined Tests..." << std::endl;
     std::cout << "Initiating Test 1..." << std::endl;
@@ -148,9 +150,9 @@ void tests() {
     std::cout << "All Test Passed..." << std::endl << std::endl;
 }
 
-/** Main function */
+/** 主函数，包含命令行交互式输入 */
 int main() {
-    // running predefined tests
+    // 运行定义好的自测案例
     tests();
 
     int vertices = int(), edges = int();
@@ -163,12 +165,14 @@ int main() {
         vertices, std::vector<std::pair<int, int>>());
 
     int u = int(), v = int(), w = int();
+    std::cout << "Enter edges (u, v, weight):" << std::endl;
     while (edges--) {
         std::cin >> u >> v >> w;
         graph::addEdge(&adj, u, v, w);
     }
 
     int s = int(), t = int();
+    std::cout << "Enter source and target vertex to calculate shortest path: ";
     std::cin >> s >> t;
     int dist = graph::dijkstra(&adj, s - 1, t - 1);
     if (dist == -1) {

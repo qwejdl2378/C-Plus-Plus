@@ -1,48 +1,35 @@
 /**
  *
  * \file
- * \brief [Breadth First Search Algorithm
- * (Breadth First Search)](https://en.wikipedia.org/wiki/Breadth-first_search)
+ * \brief [Breadth First Search Algorithm (Breadth First Search)](https://en.wikipedia.org/wiki/Breadth-first_search) (广度优先搜索 BFS 算法实现)
  *
  * \author [Ayaan Khan](https://github.com/ayaankhan98)
  * \author [Aman Kumar Pandey](https://github.com/gpamangkp)
  *
  *
  * \details
- * Breadth First Search also quoted as BFS is a Graph Traversal Algorithm.
- * Time Complexity O(|V| + |E|) where V are the number of vertices and E
- * are the number of edges in the graph.
+ * 广度优先搜索 (BFS) 是一种经典的图遍历算法。
+ * 时间复杂度为 $O(|V| + |E|)$，其中 V 是顶点的个数，E 是图中的边数。
  *
- * Applications of Breadth First Search are
+ * BFS 的典型应用场景包括：
+ * 1. 寻找无权图两顶点间的最短路径（以边数计）（相比 DFS，这是 BFS 的一大优势）
+ * 2. Ford-Fulkerson 算法中寻找增广路径以计算流网络的最大流（Edmonds-Karp 算法）
+ * 3. 检测图是否是二分图 (Bipartite Graph)
+ * 4. 垃圾回收中的 Cheney 拷贝算法
  *
- * 1. Finding shortest path between two vertices say u and v, with path
- *    length measured by number of edges (an advantage over depth first
- *    search algorithm)
- * 2. Ford-Fulkerson Method for computing the maximum flow in a flow network.
- * 3. Testing bipartiteness of a graph.
- * 4. Cheney's Algorithm, Copying garbage collection.
+ * <h4>工作原理</h4>
+ * 在下面的实现中，我们使用邻接表（通过 std::map 和 std::list 容器）来构建图结构。
+ * BFS 过程如下：
+ * 它需要一个指定的起始顶点作为探索起点。
+ * 我们维护一个布尔 map 或向量来记录各顶点是否被访问过，避免重复访问甚至陷入死循环。
+ * 同时配合使用一个辅助队列 (Queue)。
  *
- * And there are many more...
- *
- * <h4>working</h4>
- * In the implementation below we first created a graph using the adjacency
- * list representation of graph.
- * Breadth First Search Works as follows
- * it requires a vertex as a start vertex, Start vertex is that vertex
- * from where you want to start traversing the graph.
- * We maintain a bool array or a vector to keep track of the vertices
- * which we have visited so that we do not traverse the visited vertices
- * again and again and eventually fall into an infinite loop. Along with this
- * boolen array we use a Queue.
- *
- * 1. First we mark the start vertex as visited.
- * 2. Push this visited vertex in the Queue.
- * 3. while the queue is not empty we repeat the following steps
- *
- *      1. Take out an element from the front of queue
- *      2. Explore the adjacency list of this vertex
- *         if element in the adjacency list is not visited then we
- *         push that element into the queue and mark this as visited
+ * 1. 首先将起点标记为已访问 (visited)。
+ * 2. 将起点推入辅助队列中。
+ * 3. 只要队列不为空，重复执行以下步骤：
+ *      1. 从队列头部取出一个节点并弹出。
+ *      2. 遍历该节点的所有邻居。
+ *         如果邻居未被访问，则将其推入队列，并标记为已访问。
  *
  */
 #include <algorithm>
@@ -55,48 +42,47 @@
 
 /**
  * \namespace graph
- * \brief Graph algorithms
+ * \brief 图算法命名空间
  */
 namespace graph {
-/* Class Graph definition */
+/* Graph 类定义 */
 template <typename T>
 class Graph {
     /**
-     *  adjacency_list maps every vertex to the list of its neighbours in the
-     * order in which they are added.
+     * adjacency_list 邻接表表示
+     * 将每个顶点映射到其邻居节点的链表 (list) 中。
      */
     std::map<T, std::list<T> > adjacency_list;
 
  public:
     Graph() = default;
-    ;
+    
+    /**
+     * @brief 添加边
+     * @param u 顶点 u
+     * @param v 顶点 v
+     * @param bidir 是否是双向边 (无向图默认位 true，有向图设为 false)
+     */
     void add_edge(T u, T v, bool bidir = true) {
-        /**
-         *  add_edge(u,v,bidir) is used to add an edge between node u and
-         * node v by default , bidir is made true , i.e graph is
-         * bidirectional . It means if edge(u,v) is added then u-->v  and
-         * v-->u both edges exist.
-         *
-         *  to make the graph unidirectional pass the third parameter of
-         * add_edge as false which will
-         */
-        adjacency_list[u].push_back(v);  // u-->v edge added
+        adjacency_list[u].push_back(v);  // 添加 u --> v 边
         if (bidir == true) {
-            // if graph is bidirectional
-            adjacency_list[v].push_back(u);  // v-->u edge added
+            // 如果是无向图，则反向也添加边
+            adjacency_list[v].push_back(u);  // 添加 v --> u 边
         }
     }
 
     /**
-     *  this function performs the breadth first search on graph and return a
-     *  mapping which maps the nodes to a boolean value representing whether the
-     *  node was traversed or not.
+     * @brief 执行广度优先搜索 (BFS)
+     * 遍历可达节点，并返回一个映射表，标识每个节点是否被访问。
+     * 
+     * @param src 起始源节点
+     * @return 映射表 std::map<T, bool>，键为节点，值为是否已被访问的布尔值
      */
     std::map<T, bool> breadth_first_search(T src) {
-        /// mapping to keep track of all visited nodes
+        /// 用于记录所有节点访问状态的映射表
         std::map<T, bool> visited;
-        /// initialise every possible vertex to map to false
-        /// initially none of the vertices are unvisited
+        
+        /// 初始将图中所有的顶点均设为未访问 (false)
         for (auto const &adjlist : adjacency_list) {
             visited[adjlist.first] = false;
             for (auto const &node : adjacency_list[adjlist.first]) {
@@ -104,39 +90,38 @@ class Graph {
             }
         }
 
-        /// queue to store the nodes which are yet to be traversed
+        /// 辅助队列，用于存储待访问的节点
         std::queue<T> tracker;
 
-        /// push the source vertex to queue to begin traversing
+        /// 将起点推入队列中以启动遍历
         tracker.push(src);
-        /// mark the source vertex as visited
+        /// 标记起点为已访问
         visited[src] = true;
+        
         while (!tracker.empty()) {
-            /// traverse the graph till no connected vertex are left
-            /// extract a node from queue for further traversal
+            /// 从队列前部取出当前探索节点
             T node = tracker.front();
-            /// remove the node from the queue
+            /// 将该节点弹出队列
             tracker.pop();
+            
+            // 遍历当前节点的所有邻居
             for (T const &neighbour : adjacency_list[node]) {
-                /// check every vertex connected to the node which are still
-                /// unvisited
+                /// 如果邻居节点未被访问，则将其加入队列，并标记为已访问
                 if (!visited[neighbour]) {
-                    /// if the neighbour is unvisited , push it into the queue
                     tracker.push(neighbour);
-                    /// mark the neighbour as visited
                     visited[neighbour] = true;
                 }
             }
         }
-        return visited;
+        return visited; // 返回访问标记字典
     }
 };
-/* Class definition ends */
+/* Class Graph 定义结束 */
 }  // namespace graph
 
-/** Test function */
+/** 自测用例集 */
 static void tests() {
-    /// Test 1 Begin
+    /// 测试用例 1 (无向图，整型节点)
     graph::Graph<int> g;
     std::map<int, bool> correct_result;
     g.add_edge(0, 1);
@@ -147,18 +132,19 @@ static void tests() {
     correct_result[2] = true;
     correct_result[3] = true;
 
+    // 从 2 开始搜索，图是连通的，所有节点均应可达
     std::map<int, bool> returned_result = g.breadth_first_search(2);
 
     assert(returned_result == correct_result);
     std::cout << "Test 1 Passed..." << std::endl;
 
-    /// Test 2 Begin
+    /// 测试用例 2 (从 0 开始搜索)
     returned_result = g.breadth_first_search(0);
 
     assert(returned_result == correct_result);
     std::cout << "Test 2 Passed..." << std::endl;
 
-    /// Test 3 Begins
+    /// 测试用例 3 (有向图，字符串类型节点)
     graph::Graph<std::string> g2;
 
     g2.add_edge("Gorakhpur", "Lucknow", false);
@@ -169,6 +155,7 @@ static void tests() {
     g2.add_edge("Agra", "Noida", false);
 
     std::map<std::string, bool> correct_res;
+    // 从 "Kanpur" 出发进行有向搜索
     std::map<std::string, bool> returned_res =
         g2.breadth_first_search("Kanpur");
     correct_res["Gorakhpur"] = false;
@@ -177,20 +164,23 @@ static void tests() {
     correct_res["Agra"] = true;
     correct_res["Prayagraj"] = false;
     correct_res["Noida"] = true;
+    
     assert(correct_res == returned_res);
     std::cout << "Test 3 Passed..." << std::endl;
 }
 
-/** Main function */
+/** 主函数 */
 int main() {
+    // 运行自测
     tests();
+    
     size_t edges = 0;
     std::cout << "Enter the number of edges: ";
     std::cin >> edges;
 
     graph::Graph<int> g;
 
-    std::cout << "Enter space-separated pairs of vertices that form edges: "
+    std::cout << "Enter space-separated pairs of vertices that form edges (e.g., u v): "
               << std::endl;
     while (edges--) {
         int u = 0, v = 0;
@@ -198,6 +188,7 @@ int main() {
         g.add_edge(u, v);
     }
 
+    // 从 0 开始搜索
     g.breadth_first_search(0);
     return 0;
 }

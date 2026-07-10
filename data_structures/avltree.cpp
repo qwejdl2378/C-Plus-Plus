@@ -1,6 +1,6 @@
 /**
  * \file
- * \brief A simple tree implementation using nodes
+ * \brief A simple tree implementation using nodes (AVL 树实现)
  *
  * \todo update code to use C++ STL library features and OO structure
  * \warning This program is a poor implementation and does not utilize any of
@@ -10,17 +10,18 @@
 #include <iostream>   /// for std::cout
 #include <queue>      /// for std::queue
 
+// 定义 AVL 树的节点结构
 using node = struct node {
-    int data;
-    int height;
-    struct node *left;
-    struct node *right;
+    int data;           // 节点存储的数据
+    int height;         // 节点当前的高度（用于平衡因子的计算）
+    struct node *left;  // 指向左子树的指针
+    struct node *right; // 指向右子树的指针
 };
 
 /**
- * @brief creates and returns a new node
- * @param[in] data value stored in the node
- * @return newly created node
+ * @brief 创建并返回一个新节点
+ * @param[in] data 存储在节点中的数值
+ * @return 指向新创建节点的指针
  */
 node *createNode(int data) {
     node *nn = new node();
@@ -32,8 +33,9 @@ node *createNode(int data) {
 }
 
 /**
- * @param[in] root the root of the tree
- * @return height of tree
+ * @brief 计算树的高度
+ * @param[in] root 树的根节点
+ * @return 树的高度（空树为0，否则为左右子树最大高度加1）
  */
 int height(node *root) {
     if (root == nullptr) {
@@ -43,14 +45,23 @@ int height(node *root) {
 }
 
 /**
- * @param[in] root of the tree
- * @return difference between height of left and right subtree
+ * @brief 获取节点的平衡因子
+ * @param[in] root 树的根节点
+ * @return 左右子树的高度差（左子树高度 - 右子树高度）
  */
 int getBalance(node *root) { return height(root->left) - height(root->right); }
 
 /**
- * @param root of the tree to be rotated
- * @return node after right rotation
+ * @brief 右旋转操作（LL 型失衡时使用，或者 LR 型失衡的第二步）
+ * 
+ *     root                  t
+ *     / \                  / \
+ *    t   u   ====>        L  root
+ *   / \                      / \
+ *  L   u2                   u2  u
+ * 
+ * @param root 需要旋转的失衡子树根节点
+ * @return 旋转后的新子树根节点
  */
 node *rightRotate(node *root) {
     node *t = root->left;
@@ -61,8 +72,16 @@ node *rightRotate(node *root) {
 }
 
 /**
- * @param root of the tree to be rotated
- * @return node after left rotation
+ * @brief 左旋转操作（RR 型失衡时使用，或者 RL 型失衡的第二步）
+ * 
+ *   root                    t
+ *   /  \                   / \
+ *  u    t     ====>     root  R
+ *      / \              /  \
+ *     t2  R            u   t2
+ * 
+ * @param root 需要旋转的失衡子树根节点
+ * @return 旋转后的新子树根节点
  */
 node *leftRotate(node *root) {
     node *t = root->right;
@@ -73,8 +92,9 @@ node *leftRotate(node *root) {
 }
 
 /**
- * @param root of the tree
- * @returns node with minimum value in the tree
+ * @brief 获取树中包含最小值的节点
+ * @param root 树的根节点
+ * @returns 包含最小值的节点指针（最左侧的叶子或半叶子节点）
  */
 node *minValue(node *root) {
     if (root->left == nullptr) {
@@ -84,12 +104,13 @@ node *minValue(node *root) {
 }
 
 /**
- * @brief inserts a new element into AVL tree
- * @param root of the tree
- * @param[in] item the element to be insterted into the tree
- * @return root of the updated tree
+ * @brief 将新元素插入 AVL 树，并在插入后自动进行旋转平衡
+ * @param root 树的根节点
+ * @param[in] item 需要插入的元素值
+ * @return 更新后的树根节点指针
  */
 node *insert(node *root, int item) {
+    // 1. 执行标准的 BST 插入步骤
     if (root == nullptr) {
         return createNode(item);
     }
@@ -98,55 +119,68 @@ node *insert(node *root, int item) {
     } else {
         root->right = insert(root->right, item);
     }
+
+    // 2. 获取当前节点的平衡因子，检测是否失衡
     int b = getBalance(root);
+
+    // 如果左子树比右子树高超过 1
     if (b > 1) {
+        // LR 型：新节点插入在左子树的右侧，先对左子树左旋，转换为 LL 型
         if (getBalance(root->left) < 0) {
             root->left = leftRotate(root->left);  // Left-Right Case
         }
+        // LL 型：直接右旋
         return rightRotate(root);  // Left-Left Case
-    } else if (b < -1) {
+    } 
+    // 如果右子树比左子树高超过 1
+    else if (b < -1) {
+        // RL 型：新节点插入在右子树的左侧，先对右子树右旋，转换为 RR 型
         if (getBalance(root->right) > 0) {
             root->right = rightRotate(root->right);  // Right-Left Case
         }
+        // RR 型：直接左旋
         return leftRotate(root);  // Right-Right Case
     }
     return root;
 }
 
 /**
- * @brief removes a given element from AVL tree
- * @param root of the tree
- * @param[in] element the element to be deleted from the tree
- * @return root of the updated tree
+ * @brief 从 AVL 树中删除指定元素
+ * @param root 树的根节点
+ * @param[in] element 需要被删除的元素值
+ * @return 更新后的树根节点指针
  */
 node *deleteNode(node *root, int element) {
     if (root == nullptr) {
         return root;
     }
+
+    // 1. 标准的 BST 删除步骤
     if (element < root->data) {
         root->left = deleteNode(root->left, element);
     } else if (element > root->data) {
         root->right = deleteNode(root->right, element);
-
     } else {
-        // Node to be deleted is leaf node or have only one Child
+        // 找到待删除节点
+        // 情况 A & B: 待删除节点是叶子节点，或只有一个子节点
         if (!root->right || !root->left) {
             node *temp = !root->right ? root->left : root->right;
             delete root;
             return temp;
         }
-        // Node to be deleted have both left and right subtrees
+        // 情况 C: 待删除节点有两个子节点
+        // 找到右子树中最小的节点（中序后继），用其数值覆盖当前节点，然后递归删除该中序后继
         node *temp = minValue(root->right);
         root->data = temp->data;
         root->right = deleteNode(root->right, temp->data);
     }
-    // Balancing Tree after deletion
+    // 2. 删除后进行树的自平衡处理
     return root;
 }
 
 /**
- * @brief calls delete on every node
- * @param root of the tree
+ * @brief 释放树中所有节点的内存
+ * @param root 树的根节点
  */
 void deleteAllNodes(const node *const root) {
     if (root) {
@@ -157,8 +191,8 @@ void deleteAllNodes(const node *const root) {
 }
 
 /**
- * @brief prints given tree in the LevelOrder
- * @param[in] root of the tree
+ * @brief 使用队列层序遍历（BFS）并打印 AVL 树
+ * @param[in] root 树的根节点
  */
 void levelOrder(node *root) {
     std::queue<node *> q;
@@ -177,22 +211,29 @@ void levelOrder(node *root) {
 }
 
 /**
- * @brief Main function
- * @returns 0 on exit
+ * @brief 主函数，演示 AVL 树的插入、删除及平衡效果
+ * @returns 0 表示程序正常退出
  */
 int main() {
-    // Testing AVL Tree
+    // 测试 AVL 树
     node *root = nullptr;
     int i = 0;
+    // 依次插入 1 到 7，AVL 树会在过程中进行旋转保持平衡
     for (i = 1; i <= 7; i++) root = insert(root, i);
     std::cout << "LevelOrder: ";
     levelOrder(root);
+
+    // 删除节点 1，观察层序遍历结果
     root = deleteNode(root, 1);  // Deleting key with value 1
     std::cout << "\nLevelOrder: ";
     levelOrder(root);
-    root = deleteNode(root, 4);  // Deletin key with value 4
+
+    // 删除节点 4，观察平衡调整后的层序遍历结果
+    root = deleteNode(root, 4);  // Deleting key with value 4
     std::cout << "\nLevelOrder: ";
     levelOrder(root);
+
+    // 清理所有节点内存
     deleteAllNodes(root);
     return 0;
 }

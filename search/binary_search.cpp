@@ -1,84 +1,76 @@
 /******************************************************************************
  * @file
- * @brief [Binary search
- * algorithm](https://en.wikipedia.org/wiki/Binary_search_algorithm)
+ * @brief [Binary search algorithm](https://en.wikipedia.org/wiki/Binary_search_algorithm) (二分查找算法实现)
  * @details
- * Binary search is a search algorithm that finds the position of a target value
- * within a sorted array.Just like looking for a word in a dictionary, in binary search we compare the target value to the middle
- * element of the array. If they are not equal, then the half in which the target
- * cannot lie is eliminated and the search continues on the remaining half,
- * again taking the middle element to compare to the target value, and repeating
- * this until the target value is found. If the search ends with the remaining
- * half being empty, the target is not in the array.
+ * 二分查找是一种在有序数组中查找特定元素的搜索算法。
+ * 类似于在字典中查词：我们首先将目标值与数组的中间元素进行比较。
+ * 如果相等，则直接返回其索引；如果不相等，由于数组是有序的，我们可以将不可能包含目标值的那一半区间直接排除，
+ * 并在剩余的半个区间内继续重复该过程，直到找到目标值。
+ * 如果搜索区间收缩为空，说明目标值不存在于数组中。
  *
- * ### Implementation
+ * ### 实现要求
  *
- * Binary search works on sorted arrays. It begins by comparing an
- * element in the middle of the array with the target value. If the target value
- * matches the element, its position in the array is returned. If the target
- * value is less than the element, the search continues in the lower half of
- * the array. If the target value is greater than the element, the search
- * continues in the upper half of the array. By doing this, the algorithm
- * eliminates the half in which the target value cannot lie in each iteration.
+ * 二分查找的前提是原数组必须是有序的。
  *
- * ### Complexities
+ * ### 复杂度分析
  *
- * //n is the number of element in the array.
+ * 令 n 为数组中元素的个数。
  *
- * Worst-case time complexity	O(log n)
- * Best-case time complexity	O(1)
- * Average time complexity	    O(log n)
- * space complexity  0(1)
- * Worst-case space complexity  0(1)
+ * 最坏时间复杂度：O(log n)
+ * 最好时间复杂度：O(1)
+ * 平均时间复杂度：O(log n)
+ * 空间复杂度：O(1) (只需要常数级别的辅助变量)
  *
  * @author [Lajat Manekar](https://github.com/Lazeeez)
  * @author Unknown author
  *******************************************************************************/
 
-#include <algorithm>  /// for std::sort function
-#include <cassert>    /// for std::assert
+#include <algorithm>  /// 用于 std::sort 排序函数
+#include <cassert>    /// 用于 std::assert
 #include <cstdint>
-#include <iostream>   /// for IO operations
-#include <vector>     /// for std::vector
+#include <iostream>   /// 用于输入输出操作
+#include <vector>     /// 用于 std::vector
+
 /******************************************************************************
  * @namespace search
- * @brief Searching algorithms
+ * @brief 搜索算法命名空间
  *******************************************************************************/
 namespace search {
 
 /******************************************************************************
  * @namespace binary_search
- * @brief Binary search searching algorihm
+ * @brief 二分查找实现命名空间
  *******************************************************************************/
 namespace binary_search {
 
 /******************************************************************************
- * @brief The main function which implements binary search
- * @param arr vector to be searched in
- * @param val value to be searched
- * @returns @param int index of val in vector arr
+ * @brief 二分查找核心实现函数
+ * @param arr 已经排好序的待查找向量
+ * @param val 需要检索的目标数值
+ * @returns 目标数值在向量中的索引位置，若未找到则返回 uint64_t 类型的最大值 (-1)
  *******************************************************************************/
 uint64_t binarySearch(std::vector<uint64_t> arr, uint64_t val) {
-    uint64_t low = 0;                // set the lowest point of the vector.
-    uint64_t high = arr.size() - 1;  // set the highest point of the vector.
+    uint64_t low = 0;                // 检索区间的左端点
+    uint64_t high = arr.size() - 1;  // 检索区间的右端点
 
     while (low <= high) {
-        uint64_t m = low + (high - low) / 2;  // set the pivot point
+        // 计算中点位置，采用 (low + (high - low) / 2) 可以有效防止 (low + high) 发生整型溢出
+        uint64_t m = low + (high - low) / 2;  
 
+        // 找到目标值，直接返回其索引
         if (val == arr[m]) {
             return m;
-        } /****************************************************
-           * if pivot point is the val, return it,
-           * else check if val is greater or smaller than pivot value
-           * and set the next pivot point accordingly.
-           ****************************************************/
+        } 
+        // 如果目标值小于中点值，说明目标只可能存在于左半边，收缩右端点
         else if (val < arr[m]) {
             high = m - 1;
-        } else {
+        } 
+        // 如果目标值大于中点值，说明目标只可能存在于右半边，收缩左端点
+        else {
             low = m + 1;
         }
     }
-    return -1;  // if val is not in the array, return -1.
+    return -1;  // 若未找到，返回 -1 (在无符号类型下表现为 18446744073709551615)
 }
 
 }  // namespace binary_search
@@ -86,16 +78,15 @@ uint64_t binarySearch(std::vector<uint64_t> arr, uint64_t val) {
 }  // namespace search
 
 /*******************************************************************************
- * @brief Self-test implementation #1
- * @returns void
+ * @brief 自测用例 1
  *******************************************************************************/
 static void test1() {
-    // testcase #1
-    // array = [1,3,5,7,9,8,6,4,2] , Value = 4
-    // should return 3
+    // 测试用例 1
+    // 输入数组 arr = [1,3,5,7,9,8,6,4,2]，查找 4
+    // 排序后 arr = [1,2,3,4,5,6,7,8,9]，值 4 对应的排序后索引应为 3
 
     std::vector<uint64_t> arr = {{1, 3, 5, 7, 9, 8, 6, 4, 2}};
-    std::sort(arr.begin(), arr.end());
+    std::sort(arr.begin(), arr.end()); // 排序
     uint64_t expected_ans = 3;
     uint64_t derived_ans = search::binary_search::binarySearch(arr, 4);
     std::cout << "Test #1: ";
@@ -104,13 +95,12 @@ static void test1() {
 }
 
 /*******************************************************************************
- * @brief Self-test implementation #2
- * @returns void
+ * @brief 自测用例 2
  *******************************************************************************/
 void test2() {
-    // testcase #2
-    // array = [1,23,25,4,2] , Value = 25
-    // should return 4
+    // 测试用例 2
+    // 输入数组 arr = [1,23,25,4,2]，查找 25
+    // 排序后为 [1,2,4,23,25]，值 25 对应的排序后索引应为 4
     std::vector<uint64_t> arr = {{1, 23, 25, 4, 2}};
     std::sort(arr.begin(), arr.end());
     uint64_t expected_ans = 4;
@@ -121,13 +111,12 @@ void test2() {
 }
 
 /*******************************************************************************
- * @brief Self-test implementation #3
- * @returns void
+ * @brief 自测用例 3
  *******************************************************************************/
 void test3() {
-    // testcase #3
-    // array = [1,31,231,12,12,2,5,51,21,23,12,3] , Value = 5
-    // should return 8
+    // 测试用例 3
+    // 输入数组 arr = [1,31,231,12,2,5,51,21,23,12,3]，查找 31
+    // 排序后为 [1,2,3,5,12,12,21,23,31,51,231]，值 31 对应的排序后索引应为 8
     std::vector<uint64_t> arr = {{1, 31, 231, 12, 2, 5, 51, 21, 23, 12, 3}};
     std::sort(arr.begin(), arr.end());
     uint64_t expected_ans = 8;
@@ -138,13 +127,13 @@ void test3() {
 }
 
 /*******************************************************************************
- * @brief Main function
- * @returns 0 on exit
+ * @brief 主函数
+ * @returns 0
  *******************************************************************************/
 int main() {
-    test1();  // run self-test implementation #1
-    test2();  // run self-test implementation #2
-    test3();  // run self-test implementation #3
+    test1();  // 运行自测用例 1
+    test2();  // 运行自测用例 2
+    test3();  // 运行自测用例 3
 
     return 0;
 }
