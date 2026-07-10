@@ -4,15 +4,19 @@
 
 #include "node.hpp"
 
-/** Definition of the queue class */
+/**
+ * @brief 泛型链表队列类模板
+ * @tparam ValueType 存储的元素数据类型
+ */
 template <class ValueType>
 class queue {
     using node_type = Node<ValueType>;
 
  public:
     using value_type = ValueType;
+    
     /**
-     * @brief prints the queue into the std::cout
+     * @brief 在标准输出流中可视化打印队列所有元素
      */
     void display() const {
         std::cout << "Front --> ";
@@ -22,9 +26,8 @@ class queue {
     }
 
     /**
-     * @brief converts the queue into the std::vector
-     * @return std::vector containning all of the elements of the queue in the
-     * same order
+     * @brief 将队列元素导出到 std::vector 中
+     * @return 包含队列所有元素且保持顺序一致的 std::vector
      */
     std::vector<value_type> toVector() const {
         return push_all_to_vector(this->queueFront.get(), this->size);
@@ -32,8 +35,8 @@ class queue {
 
  private:
     /**
-     * @brief throws an exception if queue is empty
-     * @exception std::invalid_argument if queue is empty
+     * @brief 辅助函数：如果队列为空则抛出 invalid_argument 异常
+     * @exception std::invalid_argument 如果队列为空
      */
     void ensureNotEmpty() const {
         if (isEmptyQueue()) {
@@ -43,13 +46,14 @@ class queue {
 
  public:
     /**
-     * @brief checks if the queue has no elements
-     * @return true if the queue is empty, false otherwise
+     * @brief 检查队列是否为空
+     * @return `true` 代表为空；`false` 否则
      */
     bool isEmptyQueue() const { return (queueFront == nullptr); }
 
     /**
-     * @brief inserts a new item into the queue
+     * @brief 向队列尾部插入一个新元素（入队）
+     * @param item 新元素的值
      */
     void enQueue(const value_type& item) {
         auto newNode = std::make_shared<node_type>();
@@ -66,8 +70,9 @@ class queue {
     }
 
     /**
-     * @return the first element of the queue
-     * @exception std::invalid_argument if queue is empty
+     * @brief 获取当前队首的元素
+     * @return 队首元素的值
+     * @exception std::invalid_argument 如果队列为空
      */
     value_type front() const {
         ensureNotEmpty();
@@ -75,8 +80,8 @@ class queue {
     }
 
     /**
-     * @brief removes the first element from the queue
-     * @exception std::invalid_argument if queue is empty
+     * @brief 弹出队首元素（出队）
+     * @exception std::invalid_argument 如果队列为空
      */
     void deQueue() {
         ensureNotEmpty();
@@ -85,7 +90,7 @@ class queue {
     }
 
     /**
-     * @brief removes all elements from the queue
+     * @brief 清空队列中的所有元素
      */
     void clear() {
         queueFront = nullptr;
@@ -95,10 +100,10 @@ class queue {
 
  private:
     std::shared_ptr<node_type> queueFront =
-        {}; /**< Pointer to the front of the queue */
+        {}; /**< 指向队首的共享智能指针 */
     std::shared_ptr<node_type> queueRear =
-        {}; /**< Pointer to the rear of the queue  */
-    std::size_t size = 0;
+        {}; /**< 指向队尾的共享智能指针 */
+    std::size_t size = 0; ///< 队列当前的有效元素计数器
 };
 
 #endif  // DATA_STRUCTURES_QUEUE_HPP_

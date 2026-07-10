@@ -2,7 +2,7 @@
  * @author [shoniavika](https://github.com/shoniavika)
  * @file
  *
- * Implementation of a Queue using two Stacks.
+ * Implementation of a Queue using two Stacks. (使用两个栈实现队列)
  */
 
 #include <cassert>
@@ -11,44 +11,48 @@
 
 namespace {
 /**
- * @brief Queue data structure. Stores elements in FIFO
- * (first-in-first-out) manner.
- * @tparam T datatype to store in the queue
+ * @brief 队列数据结构模板类。以 FIFO (先进先出) 的方式存储元素。
+ * @tparam T 存储在队列中的元素数据类型
  */
 template <typename T>
 class MyQueue {
  private:
-    std::stack<T> s1, s2;
+    std::stack<T> s1, s2; ///< 辅助栈 s1，主存储栈 s2
 
  public:
     /**
-     * Constructor for queue.
+     * @brief 默认构造函数
      */
     MyQueue() = default;
 
     /**
-     * Pushes x to the back of queue.
+     * @brief 向队列尾部插入一个元素 x
      */
     void push(T x);
 
     /**
-     * Removes an element from the front of the queue.
+     * @brief 移除并返回队列首部的元素
      */
     const T& pop();
 
     /**
-     * Returns first element, without removing it.
+     * @brief 返回队列首部元素值，不移除它
      */
     const T& peek() const;
 
     /**
-     * Returns whether the queue is empty.
+     * @brief 检查队列是否为空
      */
     bool empty() const;
 };
 
 /**
- * Appends element to the end of the queue
+ * @brief 向队列尾部追加元素
+ * @details 为了保持先进先出特性，我们需要将元素颠倒顺序存储：
+ * 1. 将 s2 中所有元素依次出栈并压入 s1。
+ * 2. 将新元素 x 压入空的 s2。
+ * 3. 再将 s1 中的全部元素依次出栈压回 s2。
+ * 这样做的结果是，最早进入队列的元素总是位于 s2 的栈顶，从而实现 O(1) 的 pop 和 peek 操作。
  */
 template <typename T>
 void MyQueue<T>::push(T x) {
@@ -64,7 +68,7 @@ void MyQueue<T>::push(T x) {
 }
 
 /**
- * Removes element from the front of the queue
+ * @brief 弹出并返回队首的元素
  */
 template <typename T>
 const T& MyQueue<T>::pop() {
@@ -74,8 +78,7 @@ const T& MyQueue<T>::pop() {
 }
 
 /**
- * Returns element in the front.
- * Does not remove it.
+ * @brief 返回队首位置的元素，不执行弹出操作
  */
 template <typename T>
 const T& MyQueue<T>::peek() const {
@@ -87,7 +90,7 @@ const T& MyQueue<T>::peek() const {
 }
 
 /**
- * Checks whether a queue is empty
+ * @brief 判断队列是否为空
  */
 template <typename T>
 bool MyQueue<T>::empty() const {
@@ -96,7 +99,7 @@ bool MyQueue<T>::empty() const {
 }  // namespace
 
 /**
- * Testing function
+ * @brief 单元自测用例集
  */
 void queue_test() {
     MyQueue<int> que;
@@ -136,7 +139,8 @@ void queue_test() {
 }
 
 /**
- * Main function, calls testing function
+ * @brief 主函数
+ * @returns 0
  */
 int main() {
     queue_test();
