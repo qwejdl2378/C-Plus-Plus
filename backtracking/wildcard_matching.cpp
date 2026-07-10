@@ -1,20 +1,20 @@
 /**
  * @file
- * @brief Implementation of the [Wildcard
- * Matching](https://www.geeksforgeeks.org/wildcard-pattern-matching/) problem.
+ * @brief Implementation of the [Wildcard Matching](https://www.geeksforgeeks.org/wildcard-pattern-matching/) problem. (通配符匹配记忆化回溯算法实现)
  * @details
- * Given a matching string and a pattern, implement wildcard pattern
- * matching with support for `?` and `*`. `?` matches any single character.
- * `*` matches any sequence of characters (including the empty sequence).
- * The matching should cover the entire matching string (not partial). The task
- * is to determine if the pattern matches with the matching string
+ * 给定一个源字符串和一个包含通配符的模式串，实现通配符匹配。
+ * 支持的通配符包括：
+ * - `?`：匹配任意单个字符。
+ * - `*`：匹配任意字符序列（包括空序列）。
+ * 本算法使用记忆化回溯（带备忘录的动态规划）实现，以避免重复计算子问题。
+ *
  * @author [Swastika Gupta](https://github.com/Swastyy)
  */
 
-#include <cassert>   /// for assert
+#include <cassert>   /// 用于 assert 断言
 #include <cstdint>
-#include <iostream>  /// for IO operations
-#include <vector>    /// for std::vector
+#include <iostream>  /// 用于输入输出
+#include <vector>    /// 用于 std::vector
 
 /**
  * @namespace backtracking
@@ -28,32 +28,35 @@ namespace backtracking {
  */
 namespace wildcard_matching {
 /**
- * @brief The main function implements if pattern can be matched with given
- * string
- * @param s is the given matching string
- * @param p is the given pattern
- * @param pos1 is the starting index
- * @param pos2 is the last index
- * @returns 1 if pattern matches with matching string otherwise 0
+ * @brief 记忆化备忘录表 (DP table)
+ * @details 大小为 1000x1000，初始化为 -1，代表该状态尚未计算
  */
 std::vector<std::vector<int64_t>> dpTable(1000, std::vector<int64_t>(1000, -1));
+
+/**
+ * @brief 判断模式串 p 是否可以与源字符串 s 匹配的记忆化递归函数
+ * @param s 源字符串
+ * @param p 模式串
+ * @param pos1 源字符串当前比对的字符索引
+ * @param pos2 模式串当前比对的字符索引
+ * @returns 1 if pattern matches with matching string otherwise 0
+ */
 bool wildcard_matching(std::string s, std::string p, uint32_t pos1,
                        uint32_t pos2) {
     uint32_t n = s.length();
     uint32_t m = p.length();
-    // matching is successfull if both strings are done
+    // 递归出口 1：源字符串和模式串都正好比对结束，匹配成功
     if (pos1 == n && pos2 == m) {
         return true;
     }
 
-    // matching is unsuccessfull if pattern is not finished but matching string
-    // is
+    // 递归出口 2：模式串已用完，但源字符串尚未比对完，匹配失败
     if (pos1 != n && pos2 == m) {
         return false;
     }
 
-    // all the remaining characters of patterns must be * inorder to match with
-    // finished string
+    // 递归出口 3：源字符串已用完，但模式串尚未用完。
+    // 此时模式串剩余字符必须全部都是 '*' 才能匹配空字符串，否则匹配失败。
     if (pos1 == n && pos2 != m) {
         while (pos2 < m && p[pos2] == '*') {
             pos2++;
@@ -62,30 +65,32 @@ bool wildcard_matching(std::string s, std::string p, uint32_t pos1,
         return pos2 == m;
     }
 
-    // if already calculted for these positions
+    // 如果备忘录中已经计算过该状态，直接返回缓存结果
     if (dpTable[pos1][pos2] != -1) {
         return dpTable[pos1][pos2];
     }
 
-    // if the characters are same just go ahead in both the string
+    // 分支 1：如果当前位置的字符相等，则直接继续比对后面的字符
     if (s[pos1] == p[pos2]) {
         return dpTable[pos1][pos2] =
                    wildcard_matching(s, p, pos1 + 1, pos2 + 1);
     }
 
     else {
-        // can only single character
+        // 分支 2：如果模式串当前是通配符 '?'，由于可以匹配任意单个字符，直接继续比对后面的字符
         if (p[pos2] == '?') {
             return dpTable[pos1][pos2] =
                        wildcard_matching(s, p, pos1 + 1, pos2 + 1);
         }
-        // have choice either to match one or more charcters
+        // 分支 3：如果模式串当前是通配符 '*'，有两种可能选择：
+        // 1. 将 '*' 匹配为空字符（不消耗源字符串字符，继续匹配模式串的下一个位置：pos2 + 1）
+        // 2. 将 '*' 匹配为当前字符（消耗源字符串当前字符，模式串依然留在当前位置等待下一次继续匹配：pos1 + 1）
         else if (p[pos2] == '*') {
             return dpTable[pos1][pos2] =
                        wildcard_matching(s, p, pos1, pos2 + 1) ||
                        wildcard_matching(s, p, pos1 + 1, pos2);
         }
-        // not possible to match
+        // 分支 4：字符不相等且不为通配符，匹配失败
         else {
             return dpTable[pos1][pos2] = 0;
         }
