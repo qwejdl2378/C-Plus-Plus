@@ -1,73 +1,62 @@
 /**
  * @file
- * @brief Implementation of [Reversing
- * a single linked list](https://simple.wikipedia.org/wiki/Linked_list)
+ * @brief Implementation of [Reversing a single linked list](https://simple.wikipedia.org/wiki/Linked_list) (单链表反转算法实现)
  * @details
- * The linked list is a data structure used for holding a sequence of
- * values, which can be added, displayed, reversed, or removed.
- * ### Algorithm
- * Values can be added by iterating to the end of a list (by following
- * the pointers) starting from the first link. Whichever link points to null
- * is considered the last link and is pointed to the new value.
- *
- * Linked List can be reversed by using 3 pointers: current, previous, and
- * next_node; we keep iterating until the last node. Meanwhile, before changing
- * to the next of current, we store it in the next_node pointer, now we store
- * the prev pointer in the current of next, this is where the actual reversal
- * happens. And then we move the prev and current pointers one step forward.
- * Then the head node is made to point to the last node (prev pointer) after
- * completion of an iteration.
-
- * [A graphic explanation and view of what's happening behind the
- *scenes](https://drive.google.com/file/d/1pM5COF0wx-wermnNy_svtyZquaCUP2xS/view?usp=sharing)
+ * 链表是一种用于存储有序元素序列的数据结构。
+ * 本程序实现了一个完整的单链表，包括元素的插入、清空、深拷贝、以及核心的反转（reverseList）功能。
+ * 
+ * ### 反转算法原理
+ * 使用三个指针来完成原地反转：`curr` (当前节点)，`prev` (前驱节点) 和 `next_node` (后继临时节点)。
+ * 1. 遍历过程中，先保存下一个节点 `next_node = curr->next` 防止链表断开。
+ * 2. 核心反转：让当前节点指向前驱节点 `curr->next = prev`。
+ * 3. 移动指针：前驱指针移到当前 `prev = curr`，当前指针移到下一个 `curr = next_node`。
+ * 4. 循环结束时，`curr` 变为 nullptr，整个链表新的头节点就是 `prev`。
  */
 
-#include <cassert>   /// for assert
-#include <iostream>  /// for I/O operations
-#include <new>       /// for managing  dynamic storage
+#include <cassert>   /// 用于 assert 断言
+#include <iostream>  /// 用于输入输出
+#include <new>       /// 用于动态内存管理 (bad_alloc 异常捕获)
 
 /**
  * @namespace data_structures
- * @brief Data Structures algorithms
+ * @brief 数据结构算法命名空间
  */
 namespace data_structures {
 /**
  * @namespace linked_list
- * @brief Functions for singly linked list algorithm
+ * @brief 单链表算法相关命名空间
  */
 namespace linked_list {
 /**
- * A Node class containing a value and pointer to another link
+ * @brief 链表节点类 (Node)
  */
 class Node {
  public:
-    int32_t val;  /// value of the current link
-    Node* next;   /// pointer to the next value on the list
+    int32_t val;  ///< 节点存储的值
+    Node* next;   ///< 指向下一个节点的指针
 };
 
 /**
- *  @brief creates a deep copy of a list starting at the input node
- *  @param[in] node pointer to the first node/head of the list to be copied
- *  @return pointer to the first node/head of the copied list or nullptr
+ * @brief 递归深度拷贝所有节点
+ * @param node 待拷贝链表的头节点指针
+ * @return 拷贝生成的新链表头节点指针；若为空则返回 nullptr
  */
 Node* copy_all_nodes(const Node* const node) {
     if (node) {
-        // NOLINTNEXTLINE(cppcoreguidelines-owning-memory)
         Node* res = new Node();
         res->val = node->val;
-        res->next = copy_all_nodes(node->next);
+        res->next = copy_all_nodes(node->next); // 递归拷贝后继节点
         return res;
     }
     return nullptr;
 }
 
 /**
- * A list class containing a sequence of links
+ * @brief 链表管理类 (list)
  */
-// NOLINTNEXTLINE(cppcoreguidelines-special-member-functions)
 class list {
  private:
-    Node* head = nullptr;  // link before the actual first element
+    Node* head = nullptr;  ///< 实际首个节点的指针，若为空代表链表为空
     void delete_all_nodes();
     void copy_all_nodes_from_list(const list& other);
 
@@ -86,19 +75,17 @@ class list {
 };
 
 /**
- * @brief Utility function that checks if the list is empty
- * @returns true if the list is empty
- * @returns false if the list is not empty
+ * @brief 检查链表是否为空
+ * @return `true` 代表为空；`false` 否则
  */
 bool list::isEmpty() const { return head == nullptr; }
 
 /**
- * @brief Utility function that adds a new element at the end of the list
- * @param new_elem element be added at the end of the list
+ * @brief 在链表尾部插入一个新元素
+ * @param n 待插入的元素值
  */
 void list::insert(int32_t n) {
     try {
-        // NOLINTNEXTLINE(cppcoreguidelines-owning-memory)
         Node* new_node = new Node();
         Node* temp = nullptr;
         new_node->val = n;
@@ -107,6 +94,7 @@ void list::insert(int32_t n) {
             head = new_node;
         } else {
             temp = head;
+            // 遍历找到当前的尾部节点
             while (temp->next != nullptr) {
                 temp = temp->next;
             }
@@ -118,26 +106,27 @@ void list::insert(int32_t n) {
 }
 
 /**
- * @brief Utility function for reversing a list
- * @brief Using the current, previous, and next pointer.
- * @returns void
+ * @brief 原地反转链表（核心函数）
+ * @details 采用三指针法，逐个节点翻转其 next 指向。
  */
 void list::reverseList() {
-    Node* curr = head;
-    Node* prev = nullptr;
-    Node* next_node = nullptr;
+    Node* curr = head;        ///< 当前正在处理的节点
+    Node* prev = nullptr;     ///< 当前节点的前驱节点
+    Node* next_node = nullptr;///< 暂存当前节点的下一个节点，以防断链
+
     while (curr != nullptr) {
-        next_node = curr->next;
-        curr->next = prev;
-        prev = curr;
-        curr = next_node;
+        next_node = curr->next;  // 1. 暂存下一个节点
+        curr->next = prev;       // 2. 将当前节点指向前驱节点（反转）
+        prev = curr;             // 3. prev 指针向后移动一位
+        curr = next_node;        // 4. curr 指针向后移动一位
     }
-    head = prev;
+    head = prev;                 // 遍历结束，更新头节点为最后一个非空节点 prev
 }
 
 /**
- * @brief Utility function to find the top element of the list
- * @returns the top element of the list
+ * @brief 获取链表的第一个元素值
+ * @return 头节点的值
+ * @throws std::logic_error 如果链表为空
  */
 int32_t list::top() const {
     if (!isEmpty()) {
@@ -146,9 +135,11 @@ int32_t list::top() const {
         throw std::logic_error("List is empty");
     }
 }
+
 /**
- *  @brief Utility function to find the last element of the list
- *  @returns the last element of the list
+ * @brief 获取链表的最后一个元素值
+ * @return 尾节点的值
+ * @throws std::logic_error 如果链表为空
  */
 int32_t list::last() const {
     if (!isEmpty()) {
@@ -161,13 +152,14 @@ int32_t list::last() const {
         throw std::logic_error("List is empty");
     }
 }
+
 /**
- *  @brief Utility function to find the i th element of the list
- *  @returns the i th element of the list
+ * @brief 获取链表中指定索引位置处的节点值
+ * @param index 0 起始的索引
+ * @return 目标索引的值
  */
 int32_t list::traverse(int32_t index) const {
     Node* current = head;
-
     int count = 0;
     while (current != nullptr) {
         if (count == index) {
@@ -176,14 +168,12 @@ int32_t list::traverse(int32_t index) const {
         count++;
         current = current->next;
     }
-
-    /* if we get to this line,the caller was asking for a non-existent element
-    so we assert fail */
+    // 越界请求，异常退出
     exit(1);
 }
 
 /**
- *  @brief calls delete operator on every node in the represented list
+ * @brief 清空释放链表所有节点的内存空间
  */
 void list::delete_all_nodes() {
     while (head != nullptr) {
@@ -195,24 +185,27 @@ void list::delete_all_nodes() {
 
 list::~list() { delete_all_nodes(); }
 
+/**
+ * @brief 辅助深拷贝函数
+ */
 void list::copy_all_nodes_from_list(const list& other) {
     assert(isEmpty());
     head = copy_all_nodes(other.head);
 }
 
 /**
- *  @brief copy constructor creating a deep copy of every node of the input
+ * @brief 拷贝构造函数（深拷贝）
  */
 list::list(const list& other) { copy_all_nodes_from_list(other); }
 
 /**
- *  @brief assignment operator creating a deep copy of every node of the input
+ * @brief 赋值运算符重载（防自赋值深拷贝）
  */
 list& list::operator=(const list& other) {
     if (this == &other) {
         return *this;
     }
-    delete_all_nodes();
+    delete_all_nodes(); // 释放原有的所有元素
 
     copy_all_nodes_from_list(other);
     return *this;
@@ -222,12 +215,10 @@ list& list::operator=(const list& other) {
 }  // namespace data_structures
 
 /**
- * @brief Self-test implementations
- * @returns void
+ * @brief 单元自测用例集 1
  */
 static void test() {
     data_structures::linked_list::list L;
-    // 1st test
     L.insert(11);
     L.insert(12);
     L.insert(15);
@@ -237,8 +228,10 @@ static void test() {
     L.insert(18);
     assert(L.top() == 11);
     assert(L.last() == 18);
-    L.reverseList();
-    // Reversal Testing
+    
+    L.reverseList(); // 反转链表
+    
+    // 验证反转后元素位置
     assert(L.top() == 18);
     assert(L.traverse(1) == -20);
     assert(L.traverse(2) == -12);
@@ -249,6 +242,9 @@ static void test() {
     std::cout << "All tests have successfully passed!" << std::endl;
 }
 
+/**
+ * @brief 测试拷贝构造函数是否能够实现完全深拷贝
+ */
 void test_copy_constructor() {
     data_structures::linked_list::list L;
     L.insert(10);
@@ -271,6 +267,9 @@ void test_copy_constructor() {
     assert(otherList.last() == 40);
 }
 
+/**
+ * @brief 测试赋值运算符重载深拷贝
+ */
 void test_assignment_operator() {
     data_structures::linked_list::list L;
     data_structures::linked_list::list otherList;
@@ -295,11 +294,11 @@ void test_assignment_operator() {
 }
 
 /**
- * @brief Main function
- * @returns 0 on exit
+ * @brief 主函数
+ * @returns 0
  */
 int main() {
-    test();  // run self-test implementations
+    test();  // 运行单元测试集 1
     test_copy_constructor();
     test_assignment_operator();
     return 0;

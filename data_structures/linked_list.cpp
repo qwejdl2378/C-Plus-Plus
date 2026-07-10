@@ -1,18 +1,10 @@
 /**
  * @file
- * @brief Implementation of singly linked list algorithm.
+ * @brief Singly Linked List implementation using std::shared_ptr (基于 std::shared_ptr 的单链表实现)
  * @details
- * The linked list is a data structure used for holding a sequence of
- * values, which can be added, removed and displayed.
- * ### Algorithm
- * Values can be added by iterating to the end of a list(by following
- * the pointers) starting from the first link. Whichever link points to null
- * is considered the last link and is pointed to the new value.
- *
- * Values can be removed by also iterating through the list. When the node
- * containing the value is found, the node pointing to the current node is made
- * to point to the node that the current node is pointing to, and then returning
- * the current node to heap store.
+ * 单链表是一种通过节点指针连接的线性数据结构。支持添加、删除、搜索和打印。
+ * 插入：在链表首部或尾部增加新节点。
+ * 删除：遍历链表找到目标，将前驱节点的 next 指针指向当前节点的 next 指针，从而释放当前节点。
  */
 #include <iostream>
 #include <memory>
@@ -20,25 +12,22 @@
 
 /**
  * @namespace data_structures
- * @brief Data Structures algorithms
+ * @brief 数据结构算法命名空间
  */
 namespace data_structures {
 
 /**
  * @namespace linked_list
- * @brief Functions for singly linked list algorithm
+ * @brief 单链表算法相关函数及类定义
  */
 namespace linked_list {
 
 /**
- * This function checks if the string passed consists
- * of only digits.
- * @param s To be checked if s contains only integers
- * @returns true if there are only digits present in the string
- * @returns false if any other character is found
+ * @brief 检查传入的字符串是否仅由数字字符组成
+ * @param s 待检查的字符串
+ * @return `true` 代表字符串只包含数字；`false` 否则
  */
 bool isDigit(const std::string& s) {
-    // function statements here
     for (char i : s) {
         if (!isdigit(i)) {
             return false;
@@ -48,65 +37,61 @@ bool isDigit(const std::string& s) {
 }
 
 /**
- * A link class containing a value and pointer to another link
+ * @brief 链表节点类 (Link)
  */
 class link {
  private:
-    int pvalue;                   ///< value of the current link
-    std::shared_ptr<link> psucc;  ///< pointer to the next value on the list
+    int pvalue;                   ///< 节点存储的整数值
+    std::shared_ptr<link> psucc;  ///< 指向下一个节点 (successor) 的共享智能指针
 
  public:
     /**
-     * function returns the integer value stored in the link.
-     * @returns the integer value stored in the link.
+     * @brief 获取节点存储的值
+     * @returns 整数值
      */
     int val() { return pvalue; }
 
     /**
-     * function returns the pointer to next link
-     * @returns the pointer to the next link
-     * */
+     * @brief 获取下一个节点指针的引用
+     * @returns 共享智能指针引用
+     */
     std::shared_ptr<link>& succ() { return psucc; }
 
     /**
-     * Creates link with provided value and pointer to next link
-     * @param value is the integer stored in the link
+     * @brief 构造函数
+     * @param value 节点保存的值，默认为 0
      */
     explicit link(int value = 0) : pvalue(value), psucc(nullptr) {}
 };
 
 /**
- * A list class containing a sequence of links
+ * @brief 链表管理类 (List)
  */
 class list {
  private:
-    std::shared_ptr<link> first;  ///< link before the actual first element
-    std::shared_ptr<link> last;   ///< last link on the list
+    std::shared_ptr<link> first;  ///< 虚拟头节点 (Dummy Head)，不存储实际元素，其 succ() 指向第一个实际元素
+    std::shared_ptr<link> last;   ///< 指向链表最后一个节点的指针
  public:
     /**
-     * List constructor. Initializes the first and last link.
+     * @brief 构造函数，初始化虚拟头节点
      */
     list() {
-        // Initialize the first link
-        first = std::make_shared<link>();
-        // Initialize the last link with the first link
+        first = std::make_shared<link>(); // 创建一个虚拟头节点
         last = nullptr;
     }
 
-    bool isEmpty();
-
-    void push_back(int new_elem);
-    void push_front(int new_elem);
-    void erase(int old_elem);
-    void display();
-    std::shared_ptr<link> search(int find_elem);
-    void reverse();
+    bool isEmpty();                  ///< 检查链表是否为空
+    void push_back(int new_elem);    ///< 尾插法插入元素
+    void push_front(int new_elem);   ///< 头插法插入元素
+    void erase(int old_elem);        ///< 删除指定值元素
+    void display();                  ///< 显示链表所有元素
+    std::shared_ptr<link> search(int find_elem); ///< 搜索指定值节点
+    void reverse();                  ///< 反转链表（声明未实现）
 };
 
 /**
- * function checks if list is empty
- * @returns true if list is empty
- * @returns false if list is not empty
+ * @brief 判断链表是否为空
+ * @return `true` 为空；`false` 否则
  */
 bool list::isEmpty() {
     if (last == nullptr) {
@@ -117,28 +102,31 @@ bool list::isEmpty() {
 }
 
 /**
- * function adds new element to the end of the list
- * @param new_elem to be added to the end of the list
+ * @brief 在链表尾部追加元素
+ * @param new_elem 待插入值
  */
 void list::push_back(int new_elem) {
     if (isEmpty()) {
+        // 如果链表为空，新建节点作为第一个实际节点，并让首尾指针指向它
         first->succ() = std::make_shared<link>(new_elem);
         last = first->succ();
     } else {
+        // 挂载到 last 之后，并移动 last 标志
         last->succ() = std::make_shared<link>(new_elem);
         last = last->succ();
     }
 }
 
 /**
- * function adds new element to the beginning of the list
- * @param new_elem to be added to front of the list
+ * @brief 在链表头部插入元素
+ * @param new_elem 待插入值
  */
 void list::push_front(int new_elem) {
     if (isEmpty()) {
         first->succ() = std::make_shared<link>(new_elem);
         last = first->succ();
     } else {
+        // 新建节点，使其 succ() 指向原第一个实际节点，然后再将虚拟头节点的 succ() 指向该新节点
         std::shared_ptr<link> t = std::make_shared<link>(new_elem);
         t->succ() = first->succ();
         first->succ() = t;
@@ -146,8 +134,8 @@ void list::push_front(int new_elem) {
 }
 
 /**
- * function erases old element from the list
- * @param old_elem to be erased from the list
+ * @brief 从链表中删除第一个匹配的旧元素值
+ * @param old_elem 待删除的元素值
  */
 void list::erase(int old_elem) {
     if (isEmpty()) {
@@ -156,6 +144,7 @@ void list::erase(int old_elem) {
     }
     std::shared_ptr<link> t = first;
     std::shared_ptr<link> to_be_removed = nullptr;
+    // 遍历寻找值为 old_elem 节点的父节点（前驱节点）
     while (t != last && t->succ()->val() != old_elem) {
         t = t->succ();
     }
@@ -164,19 +153,21 @@ void list::erase(int old_elem) {
         return;
     }
     to_be_removed = t->succ();
-    t->succ() = t->succ()->succ();
-    to_be_removed.reset();
+    t->succ() = t->succ()->succ(); // 从链表断开目标节点
+    to_be_removed.reset();         // 释放共享指针计数引用
+    
+    // 如果删除的是最后一个节点，则需要更新 last 指针为前驱节点 t
     if (t->succ() == nullptr) {
         last = t;
     }
+    // 如果链表删除完之后首尾重合（空链表状态），将 last 置空
     if (first == last){
         last = nullptr;
     }
 }
 
 /**
- * function displays all the elements in the list
- * @returns 'void'
+ * @brief 遍历打印链表所有元素
  */
 void list::display() {
     if (isEmpty()) {
@@ -191,8 +182,9 @@ void list::display() {
 }
 
 /**
- * function searchs for @param find_elem in the list
- * @param find_elem to be searched for in the list
+ * @brief 在链表中搜索指定值的节点
+ * @param find_elem 待查找的键值
+ * @return 匹配的节点指针，未找到则返回 nullptr
  */
 std::shared_ptr<link> list::search(int find_elem) {
     if (isEmpty()) {
@@ -214,10 +206,8 @@ std::shared_ptr<link> list::search(int find_elem) {
 }  // namespace data_structures
 
 /**
- * Main function:
- * Allows the user add and delete values from the list.
- * Also allows user to search for and display values in the list.
- * @returns 0 on exit
+ * @brief 主函数，提供交互式的链表操作菜单
+ * @returns 0
  */
 int main() {
     data_structures::linked_list::list l;
