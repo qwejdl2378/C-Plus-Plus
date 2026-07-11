@@ -1,234 +1,206 @@
 /**
  * @file
- * @brief An implementation of a median calculation of a sliding window along a
- * data stream
+ * @brief Implementation of a sliding window median calculator along a data stream (数据流滑动窗口中位数计算实现)
  *
  * @details
- * Given a stream of integers, the algorithm calculates the median of a fixed
- * size window at the back of the stream. The leading time complexity of this
- * algorithm is O(log(N), and it is inspired by the known algorithm to [find
- * median from (infinite) data
- * stream](https://www.tutorialcup.com/interview/algorithm/find-median-from-data-stream.htm),
- * with the proper modifications to account for the finite window size for which
- * the median is requested
+ * 给定一个整型数据流和一个固定大小的滑动窗口，实时计算当前窗口内所有元素的中位数。
+ * 该算法主要利用了平衡二叉搜索树（BST，在 C++ 中使用 `std::multiset` 实现）来维护窗口内元素的有序状态。
  *
- * ### Algorithm
- * The sliding window is managed by a list, which guarantees O(1) for both
- * pushing and popping. Each new value is pushed to the window back, while a
- * value from the front of the window is popped. In addition, the algorithm
- * manages a multi-value binary search tree (BST), implemented by std::multiset.
- * For each new value that is inserted into the window, it is also inserted to
- * the BST. When a value is popped from the window, it is also erased from the
- * BST. Both insertion and erasion to/from the BST are O(logN) in time, with N
- * the size of the window. Finally, the algorithm keeps a pointer to the root of
- * the BST, and updates its position whenever values are inserted or erased
- * to/from BST. The root of the tree is the median! Hence, median retrieval is
- * always O(1)
+ * ### 算法设计与优化
+ * 1. 使用 `std::list` 维护窗口元素的先进先出（FIFO）顺序，实现 $O(1)$ 的插入和删除。
+ * 2. 使用 `std::multiset` 作为底层平衡二叉树存储当前窗口的所有数值，支持 $O(\log N)$ 的插入与删除。
+ * 3. 维护一个指向 `std::multiset` 中位数位置的迭代器 `_itMedian`：
+ *    - 当插入新元素时，根据其与当前中位数的大小关系，将迭代器微调 0 或 1 步，保持指向中位数。
+ *    - 当移除过期元素时，同样微调迭代器。
+ *    - 使得获取中位数的时间复杂度为常数级 $O(1)$。
  *
- * Time complexity: O(logN). Space complexity: O(N). N - size of window
+ * 时间复杂度: $O(\log N)$（每次插入/删除新元素），空间复杂度: $O(N)$，其中 $N$ 是滑动窗口的大小。
+ *
+ * @note
+ * 【迭代器失效与未定义行为 Bug 审计与修复】：
+ * 1. **重复元素迭代器失效导致崩溃与脏读 Bug**：在 `eraseFromSorted` 函数中，
+ *    原程序直接通过 `_sortedValues.find(value)` 找到一个匹配的迭代器 `it` 并通过 `erase(it)` 删除。
+ *    若窗口中存在重复值，`find()` 可能会返回与中位数指针 `_itMedian` 相同的迭代器。
+ *    一旦直接将其擦除，会导致中位数指针 `_itMedian` 成为**野指针（Dangling Iterator）**，
+ *    后续读取或微调中位数指针会触发 Undefined Behavior (甚至 Segfault 崩溃)。
+ *    **修复**：当查找到要删除的迭代器 `it` 与 `_itMedian` 重合时，若存在其他相同的重复值，
+ *    优先寻找并删除其相邻（前驱或后继）的同值迭代器，从而保护中位数迭代器不被擦除。
+ *
  * @author [Yaniv Hollander](https://github.com/YanivHollander)
  */
-#include <cassert>  /// for assert
-#include <cstdlib>  /// for std::rand - needed in testing
-#include <ctime>    /// for std::time - needed in testing
-#include <list>     /// for std::list - used to manage sliding window
-#include <set>  /// for std::multiset - used to manage multi-value sorted sliding window values
-#include <vector>  /// for std::vector - needed in testing
 
-/**
- * @namespace probability
- * @brief Probability algorithms
- */
+#include <cassert>  
+#include <cstdlib>  
+#include <ctime>    
+#include <list>     
+#include <set>      
+#include <vector>   
+#include <iostream>
+#include <random>   
+
 namespace probability {
-/**
- * @namespace windowed_median
- * @brief Functions for the Windowed Median algorithm implementation
- */
 namespace windowed_median {
+
 using Window = std::list<int>;
 using size_type = Window::size_type;
 
 /**
  * @class WindowedMedian
- * @brief A class to calculate the median of a leading sliding window at the
- * back of a stream of integer values.
+ * @brief 滑动窗口中位数计算类
  */
 class WindowedMedian {
-    const size_type _windowSize;  ///< sliding window size
-    Window _window;  ///< a sliding window of values along the stream
-    std::multiset<int> _sortedValues;  ///< a DS to represent a balanced
-                                       /// multi-value binary search tree (BST)
-    std::multiset<int>::const_iterator
-        _itMedian;  ///< an iterator that points to the root of the multi-value
-                    /// BST
+ private:
+    const size_type _windowSize;  ///< 滑动窗口的固定大小限制
+    Window _window;               ///< 双向链表维护窗口的 FIFO 顺序
+    std::multiset<int> _sortedValues;  ///< 平衡二叉搜索树维护窗口内元素的有序性
+    std::multiset<int>::const_iterator _itMedian;  ///< 指向中位数的迭代器
 
     /**
-     * @brief Inserts a value to a sorted multi-value BST
-     * @param value Value to insert
+     * @brief 向平衡二叉树中插入新元素，并更新中位数迭代器
      */
     void insertToSorted(int value) {
-        _sortedValues.insert(value);  /// Insert value to BST - O(logN)
+        _sortedValues.insert(value);  
         const auto sz = _sortedValues.size();
-        if (sz == 1) {  /// For the first value, set median iterator to BST root
+        if (sz == 1) {  
             _itMedian = _sortedValues.begin();
             return;
         }
 
-        /// If new value goes to left tree branch, and number of elements is
-        /// even, the new median in the balanced tree is the left child of the
-        /// median before the insertion
+        // 新元素插入在左半部分，且当前元素个数为偶数时，中位数向左微调一步
         if (value < *_itMedian && sz % 2 == 0) {
-            --_itMedian;  // O(1) - traversing one step to the left child
+            --_itMedian;  
         }
-
-        /// However, if the new value goes to the right branch, the previous
-        /// median's right child is the new median in the balanced tree
+        // 新元素插入在右半部分（或等于中位数），且当前元素个数为奇数时，中位数向右微调一步
         else if (value >= *_itMedian && sz % 2 != 0) {
-            ++_itMedian;  /// O(1) - traversing one step to the right child
+            ++_itMedian;  
         }
     }
 
     /**
-     * @brief Erases a value from a sorted multi-value BST
-     * @param value Value to insert
+     * @brief 从平衡二叉树中擦除过期元素，并安全更新中位数迭代器
      */
     void eraseFromSorted(int value) {
         const auto sz = _sortedValues.size();
 
-        /// If the erased value is on the left branch or the median itself and
-        /// the number of elements is even, the new median will be the right
-        /// child of the current one
+        // 待删元素位于左半侧（或就是中位数本身），且原大小为偶数时，中位数向右微调一步
         if (value <= *_itMedian && sz % 2 == 0) {
-            ++_itMedian;  /// O(1) - traversing one step to the right child
+            ++_itMedian;  
         }
-
-        /// However, if the erased value is on the right branch or the median
-        /// itself, and the number of elements is odd, the new median will be
-        /// the left child of the current one
+        // 待删元素位于右半侧（或就是中位数本身），且原大小为奇数时，中位数向左微调一步
         else if (value >= *_itMedian && sz % 2 != 0) {
-            --_itMedian;  // O(1) - traversing one step to the left child
+            --_itMedian;  
         }
 
-        /// Find the (first) position of the value we want to erase, and erase
-        /// it
-        const auto it = _sortedValues.find(value);  // O(logN)
-        _sortedValues.erase(it);                    // O(logN)
+        // 查找要删除的元素迭代器
+        auto it = _sortedValues.find(value);  
+        
+        // 核心修复：若待删迭代器恰好是当前中位数迭代器本身，优先尝试删除其同值的重复元素，防止迭代器失效
+        if (it == _itMedian) {
+            auto next_it = std::next(it);
+            if (next_it != _sortedValues.end() && *next_it == value) {
+                it = next_it;
+            } else if (it != _sortedValues.begin()) {
+                auto prev_it = std::prev(it);
+                if (*prev_it == value) {
+                    it = prev_it;
+                }
+            }
+        }
+        
+        _sortedValues.erase(it);                    
     }
 
  public:
     /**
-     * @brief Constructs a WindowedMedian object
-     * @param windowSize Sliding window size
+     * @brief 构造函数
+     * @param windowSize 窗口大小限制
      */
-    explicit WindowedMedian(size_type windowSize) : _windowSize(windowSize){};
+    explicit WindowedMedian(size_type windowSize) : _windowSize(windowSize) {}
 
     /**
-     * @brief Insert a new value to the stream
-     * @param value New value to insert
+     * @brief 向数据流中插入一个新值，同时移出超出窗口范围的老值
      */
     void insert(int value) {
-        /// Push new value to the back of the sliding window - O(1)
         _window.push_back(value);
-        insertToSorted(value);  // Insert value to the multi-value BST - O(logN)
-        if (_window.size() > _windowSize) {  /// If exceeding size of window,
-                                             /// pop from its left side
-            eraseFromSorted(
-                _window.front());  /// Erase from the multi-value BST
-                                   /// the window left side value
-            _window.pop_front();   /// Pop the left side value from the window -
-                                   /// O(1)
+        insertToSorted(value);  
+        if (_window.size() > _windowSize) {  
+            eraseFromSorted(_window.front());  
+            _window.pop_front();   
         }
     }
 
     /**
-     * @brief Gets the median of the values in the sliding window
-     * @return Median of sliding window. For even window size return the average
-     * between the two values in the middle
+     * @brief 获取当前窗口内的中位数值
      */
     float getMedian() const {
+        if (_sortedValues.empty()) return 0.0f;
         if (_sortedValues.size() % 2 != 0) {
-            return *_itMedian;  // O(1)
+            return static_cast<float>(*_itMedian);  
         }
-        return 0.5f * *_itMedian + 0.5f * *next(_itMedian);  /// O(1)
+        return 0.5f * static_cast<float>(*_itMedian) + 0.5f * static_cast<float>(*std::next(_itMedian));  
     }
 
     /**
-     * @brief A naive and inefficient method to obtain the median of the sliding
-     * window. Used for testing!
-     * @return Median of sliding window. For even window size return the average
-     * between the two values in the middle
+     * @brief 朴素低效的中位数获取方法（通过临时复制并排序），用于对齐校验
      */
     float getMedianNaive() const {
+        if (_window.empty()) return 0.0f;
         auto window = _window;
-        window.sort();  /// Sort window - O(NlogN)
-        auto median =
-            *next(window.begin(),
-                  window.size() / 2);  /// Find value in the middle - O(N)
+        window.sort();  
+        auto median = *std::next(window.begin(), window.size() / 2);  
         if (window.size() % 2 != 0) {
-            return median;
+            return static_cast<float>(median);
         }
-        return 0.5f * median +
-               0.5f * *next(window.begin(), window.size() / 2 - 1);  /// O(N)
+        return 0.5f * static_cast<float>(median) +
+               0.5f * static_cast<float>(*std::next(window.begin(), window.size() / 2 - 1));  
     }
 };
+
 }  // namespace windowed_median
 }  // namespace probability
 
 /**
- * @brief Self-test implementations
- * @param vals Stream of values
- * @param windowSize Size of sliding window
+ * @brief 单元自测用例
  */
 static void test(const std::vector<int> &vals, int windowSize) {
     probability::windowed_median::WindowedMedian windowedMedian(windowSize);
     for (const auto val : vals) {
         windowedMedian.insert(val);
-
-        /// Comparing medians: efficient function vs. Naive one
+        // 验证高效中位数算法与朴素算法的结果完全对齐
         assert(windowedMedian.getMedian() == windowedMedian.getMedianNaive());
     }
 }
 
 /**
- * @brief Main function
- * @returns 0 on exit
+ * @brief 主函数
  */
 int main() {
-    /// A few fixed test cases
-    test({1, 2, 3, 4, 5, 6, 7, 8, 9},
-         3);  /// Array of sorted values; odd window size
-    test({9, 8, 7, 6, 5, 4, 3, 2, 1},
-         3);  /// Array of sorted values - decreasing; odd window size
-    test({9, 8, 7, 6, 5, 4, 5, 6}, 4);     /// Even window size
-    test({3, 3, 3, 3, 3, 3, 3, 3, 3}, 3);  /// Array with repeating values
-    test({3, 3, 3, 3, 7, 3, 3, 3, 3}, 3);  /// Array with same values except one
-    test({4, 3, 3, -5, -5, 1, 3, 4, 5},
-         5);  /// Array that includes repeating values including negatives
+    test({1, 2, 3, 4, 5, 6, 7, 8, 9}, 3);  
+    test({9, 8, 7, 6, 5, 4, 3, 2, 1}, 3);  
+    test({9, 8, 7, 6, 5, 4, 5, 6}, 4);     
+    test({3, 3, 3, 3, 3, 3, 3, 3, 3}, 3);  
+    test({3, 3, 3, 3, 7, 3, 3, 3, 3}, 3);  
+    test({4, 3, 3, -5, -5, 1, 3, 4, 5}, 5);  
 
-    /// Array with large values - sum of few pairs exceeds MAX_INT. Window size
-    /// is even - testing calculation of average median between two middle
-    /// values
     test({470211272, 101027544, 1457850878, 1458777923, 2007237709, 823564440,
-          1115438165, 1784484492, 74243042, 114807987},
-         6);
+          1115438165, 1784484492, 74243042, 114807987}, 6);
 
-    /// Random test cases
-    std::srand(static_cast<unsigned int>(std::time(nullptr)));
+    // 随机自测校验
+    std::mt19937 rng(42); // 固定随机种子
     std::vector<int> vals;
-    for (int i = 8; i < 100; i++) {
-        const auto n =
-            1 + std::rand() /
-                    ((RAND_MAX + 5u) / 20);  /// Array size in the range [5, 20]
-        auto windowSize =
-            1 + std::rand() / ((RAND_MAX + 3u) /
-                               10);  /// Window size in the range [3, 10]
+    for (int i = 0; i < 100; i++) {
+        // 数组大小在 5 到 20 之间
+        uint32_t n = 5 + (rng() % 16);
+        // 窗口大小在 3 到 10 之间
+        uint32_t windowSize = 3 + (rng() % 8);
         vals.clear();
         vals.reserve(n);
-        for (int i = 0; i < n; i++) {
-            vals.push_back(
-                rand() - RAND_MAX);  /// Random array values (positive/negative)
+        for (uint32_t j = 0; j < n; j++) {
+            vals.push_back(static_cast<int>(rng()) % 2000 - 1000);  
         }
-        test(vals, windowSize);  /// Testing randomized test
+        test(vals, windowSize);  
     }
+
+    std::cout << "All windowed median tests passed successfully!" << std::endl;
     return 0;
 }

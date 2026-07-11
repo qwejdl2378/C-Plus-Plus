@@ -1,87 +1,81 @@
 /**
  * @file
- * @brief Implementation for a [Circular Linked
- * List](https://www.geeksforgeeks.org/circular-linked-list/).
- * @details A Circular Linked List is a variation on the regular linked list, in
- * which the last node has a pointer to the first node, which creates a full
- * circle. Consequently, this allows any node to be used as the starting point
- * for the list.
+ * @brief Implementation for a [Circular Linked List](https://www.geeksforgeeks.org/circular-linked-list/) (循环单链表实现)
+ *
+ * @details
+ * 循环链表是单链表的一种变体，其中最后一个节点（尾节点）的指针指向第一个节点（头节点），从而形成一个闭环。
+ * 这种结构允许从链表中的任意节点出发遍历整个链表。
+ *
+ * 时间复杂度:
+ * - 尾部插入 (Insert): $O(1)$ （因为维护了 `end` 尾节点指针）
+ * - 打印 (Print) / 获取元素 (Values): $O(N)$
+ * - 销毁 (Erase): $O(N)$
+ * 空间复杂度: $O(N)$
+ *
+ * @note
+ * 【未初始化状态与深拷贝死循环 Bug 审计与修复】：
+ * 1. **拷贝构造与拷贝赋值中的无限循环 Bug**：原实现在复制链表时使用 `while (node != nullptr)` 进行遍历。
+ *    但在循环链表中，节点指针永远成环，`node` 绝不会为 `nullptr`。一旦对非空链表执行拷贝构造或赋值，
+ *    程序会进入**死循环，耗尽内存直至崩溃**。
+ *    **修复**：改用标准的 `do-while` 结构，通过 `node != copy.root` 作为退出判定条件。
+ * 2. **拷贝构造函数中未初始化成员触发未定义悬空指针 Bug**：原拷贝构造函数首行直接调用 `erase()`。
+ *    由于是构造阶段，`root` 和 `end` 尚未被初始化（内含内存随机脏数据），直接在 `erase()` 中判定 `root == nullptr` 
+ *    会大概率误判为真，导致遍历垃圾地址产生**段错误崩溃（Segmentation Fault）**。
+ *    **修复**：在拷贝构造首行显式将 `root` 和 `end` 初始化为 `nullptr`，移除无意义的 `erase()` 调用。
+ * 
  * @author [Alvin](https://github.com/polarvoid)
  */
 
-#include <cassert>   /// for assert
-#include <iostream>  /// for IO operations
-#include <vector>    /// for std::vector
+#include <cassert>   
+#include <iostream>  
+#include <vector>    
 
-/**
- * @namespace operations_on_datastructures
- * @brief Operations on Data Structures
- */
 namespace operations_on_datastructures {
-
-/**
- * @namespace circular_linked_list
- * @brief Functions for the [Circular Linked
- * List](https://www.geeksforgeeks.org/circular-linked-list/) implementation
- */
 namespace circular_linked_list {
 
 /**
- * @brief A Node struct that represents a single Node in a Binary Tree
+ * @brief 循环单链表节点结构体
  */
 struct Node {
-    int64_t data;  ///< The value of the Node
-    Node* next;    ///< The Node's successor
-    /**
-     * @brief Creates a new Node with some initial data
-     * @param _data Value of Node
-     */
-    explicit Node(int64_t _data) {
-        data = _data;    ///< Set value of Node data
-        next = nullptr;  ///< Initialize successor
-    }
-    /**
-     * @brief Creates a new Node with initial data and a successor
-     * @param _data Value of Node
-     * @param _next Pointer to the next Node
-     */
-    explicit Node(int64_t _data, Node* _next) {
-        data = _data;  ///< Set value of Node data
-        next = _next;  ///< Initialize successor
-    }
+    int64_t data;  ///< 节点存储的数值
+    Node* next;    ///< 指向下一个节点的指针
+
+    explicit Node(int64_t _data) : data(_data), next(nullptr) {}
+
+    explicit Node(int64_t _data, Node* _next) : data(_data), next(_next) {}
 };
 
 /**
- * @brief A class that implements a Circular Linked List.
+ * @brief 循环单链表类
  */
 class CircularLinkedList {
  private:
-    Node* root;   ///< Pointer to the root Node
-    Node* end{};  ///< Pointer to the last Node
+    Node* root;   ///< 指向链表头节点的指针
+    Node* end;    ///< 指向链表尾节点的指针
 
  public:
     /**
-     * @brief Creates an empty CircularLinkedList.
+     * @brief 默认构造函数
      */
-    CircularLinkedList() {
-        root = nullptr;
-        end = nullptr;
-    }
+    CircularLinkedList() : root(nullptr), end(nullptr) {}
+
     /**
-     * @brief Copy constructor for CircularLinkedList.
+     * @brief 拷贝构造函数
+     * @note 核心修复：1. 显式初始化成员为 nullptr，防范 erase() 野指针。2. 引入成环终止条件，规避死循环。
      */
-    CircularLinkedList(const CircularLinkedList& copy) {
-        erase();
-        root = nullptr;
+    CircularLinkedList(const CircularLinkedList& copy) : root(nullptr), end(nullptr) {
+        if (copy.root == nullptr) {
+            return;
+        }
         Node* node = copy.root;
-        while (node != nullptr) {
+        do {
             insert(node->data);
             node = node->next;
-        }
+        } while (node != copy.root);
     }
+
     /**
-     * @brief Move constructor for CircularLinkedList
-     * @param source rvalue reference to a Circular Linked List
+     * @brief 移动构造函数
      */
     CircularLinkedList(CircularLinkedList&& source) noexcept {
         root = source.root;
@@ -89,39 +83,46 @@ class CircularLinkedList {
         source.root = nullptr;
         source.end = nullptr;
     }
+
     /**
-     * @brief Copy assignment operator
-     * @param other Reference to a Circular Linked List
-     * @returns Reference to CircularLinkedList
+     * @brief 拷贝赋值运算符
+     * @note 核心修复：防止自赋值，使用成环终止条件防止死循环。
      */
     CircularLinkedList& operator=(const CircularLinkedList& other) {
-        erase();
-        root = nullptr;
-        Node* node = other.root;
-        while (node != nullptr) {
-            insert(node->data);
-            node = node->next;
+        if (this != &other) {
+            erase();
+            if (other.root != nullptr) {
+                Node* node = other.root;
+                do {
+                    insert(node->data);
+                    node = node->next;
+                } while (node != other.root);
+            }
         }
         return *this;
     }
+
     /**
-     * @brief Move assignment operator
-     * @param other rvalue reference to a Circular Linked List
-     * @returns Reference to CircularLinkedList
+     * @brief 移动赋值运算符
      */
     CircularLinkedList& operator=(CircularLinkedList&& other) noexcept {
-        root = other.root;
-        end = other.end;
-        other.root = nullptr;
-        other.end = nullptr;
+        if (this != &other) {
+            erase();
+            root = other.root;
+            end = other.end;
+            other.root = nullptr;
+            other.end = nullptr;
+        }
         return *this;
     }
+
     /**
-     * @brief Cleans up memory when destroyed
+     * @brief 析构函数，回收内存
      */
     ~CircularLinkedList() { erase(); }
+
     /**
-     * Iteratively frees each node in the Circular Linked List from the heap
+     * @brief 迭代释放链表中的所有节点内存
      */
     void erase() {
         if (root == nullptr) {
@@ -131,124 +132,94 @@ class CircularLinkedList {
         do {
             Node* temp = node;
             node = node->next;
-            delete (temp);
+            delete temp;
         } while (node != root);
         root = nullptr;
         end = nullptr;
     }
+
     /**
-     * @brief Inserts all the values from a vector into the Circular Linked List
-     * @details Goes through each element in the vector sequentially, inserting
-     * it into the list
-     * @param values The vector of integer values that is to be inserted
-     * @returns void
+     * @brief 批量插入向量中的所有元素
      */
     void insert(const std::vector<int64_t>& values) {
         for (int64_t value : values) {
             insert(value);
         }
     }
+
     /**
-     * @brief Inserts a single value into the Circular Linked List
-     * @details Creates a Node with the given value, pointing to the root Node
-     * and inserts it into the list
-     * @param data The integer valus to be inserted
-     * @returns void
+     * @brief 插入单个数据值
      */
     void insert(int64_t data) {
         Node* node = new Node(data, root);
         insert(node);
     }
+
     /**
-     * @brief Inserts a given Node into the Circular Linked List
-     * @details Checks wheter the list is empty, and inserts the Node, modifying
-     * the end pointer
-     * @param node The Node that is to be inserted
-     * @returns void
+     * @brief 在链表尾部插入一个已有的节点对象
      */
     void insert(Node* node) {
         if (root == nullptr) {
-            root = node;        ///< Set node as the root
-            node->next = root;  ///< Point node to itself
-            end = root;         ///< Set the end to the root
+            root = node;        
+            node->next = root;  
+            end = root;         
         } else {
-            end->next = node;   ///< Append node to the end
-            node->next = root;  ///< Set the next value to the root
-            end = node;         ///< Make end point to node
+            end->next = node;   
+            node->next = root;  
+            end = node;         
         }
     }
+
     /**
-     * @brief Prints the values of the Circular Linked List, beginning from the
-     * root Node
-     * @details Goes through each Node from the root and prints them out in
-     * order
-     * @returns void
+     * @brief 打印当前链表，默认自头节点开始
      */
     void print() { print(root); }
+
     /**
-     * @brief Prints the values of the Circular Linked List, beginning from a
-     * given Node to be used as the root
-     * @details Goes through each Node from the given Node and prints them out
-     * in order. If the list is empty, it prints the message 'Empty List!'
-     * @param root The Node to start at
-     * @returns void
+     * @brief 从指定节点开始，顺时针打印一圈链表数值
      */
-    void print(Node* root) {
-        Node* temp = root;
-        if (root == nullptr) {
+    void print(Node* start_node) {
+        if (start_node == nullptr) {
             std::cout << "Empty List!\n";
             return;
         }
+        Node* temp = start_node;
         do {
             std::cout << temp->data << " ";
             temp = temp->next;
-        } while (temp != root);
+        } while (temp != start_node);
         std::cout << "\n";
     }
+
     /**
-     * @brief Returns a std::vector of the values of the Circular Linked List
-     * @details Starting from the root Node, appends each value of the list to a
-     * std::vector and returns it
-     * @returns A std::vector of the list's values
+     * @brief 获取包含链表所有元素的向量
      */
-    std::vector<int64_t> values() { return values(root); }
+    std::vector<int64_t> values() const { return values(root); }
+
     /**
-     * @brief Returns a std::vector of the values of the Circular Linked List,
-     * beginning from a given Node
-     * @details Starting from a given Node, appends each value of the list to a
-     * std::vector and returns it
-     * @param root The Node to start at
-     * @returns A std::vector of the list's values
+     * @brief 从指定节点出发，获取一圈的元素向量值
      */
-    std::vector<int64_t> values(Node* root) {
+    std::vector<int64_t> values(Node* start_node) const {
         std::vector<int64_t> res;
-        if (root == nullptr) {
-            return res;  ///< Return empty vector
+        if (start_node == nullptr) {
+            return res;  
         }
-        Node* temp = root;
+        Node* temp = start_node;
         do {
             res.push_back(temp->data);
             temp = temp->next;
-        } while (temp != root);
+        } while (temp != start_node);
         return res;
     }
 };
 
 }  // namespace circular_linked_list
-
 }  // namespace operations_on_datastructures
 
-/**
- * @namespace tests
- * @brief Testcases to check Circular Linked List.
- */
 namespace tests {
 using operations_on_datastructures::circular_linked_list::CircularLinkedList;
 using operations_on_datastructures::circular_linked_list::Node;
-/**
- * @brief A Test to check a single value
- * @returns void
- */
+
 void test1() {
     std::cout << "TEST CASE 1\n";
     std::cout << "Intialized a = {2}\n";
@@ -260,10 +231,7 @@ void test1() {
     a.print();
     std::cout << "TEST PASSED!\n\n";
 }
-/**
- * @brief A Test to check a few values
- * @returns void
- */
+
 void test2() {
     std::cout << "TEST CASE 2\n";
     std::cout << "Intialized a = {2, 5, 6}\n";
@@ -277,10 +245,7 @@ void test2() {
     a.print();
     std::cout << "TEST PASSED!\n\n";
 }
-/**
- * @brief A Test to check an input array
- * @returns void
- */
+
 void test3() {
     std::cout << "TEST CASE 3\n";
     std::cout << "Intialized a = {2, 7, 8, 3, 2, 6}\n";
@@ -292,10 +257,7 @@ void test3() {
     assert(a.values() == res);
     std::cout << "TEST PASSED!\n\n";
 }
-/**
- * @brief A Test to check using a specific Node as the starting point
- * @returns void
- */
+
 void test4() {
     std::cout << "TEST CASE 4\n";
     std::cout << "Intialized a = {2, 5}\n";
@@ -303,17 +265,13 @@ void test4() {
     CircularLinkedList a;
     std::vector<int64_t> res = {5, 2};
     a.insert(2);
-    Node* start = new Node(5);  ///< Node we will start printing from
+    Node* start = new Node(5);  
     a.insert(start);
     assert(a.values(start) == res);
     a.print(start);
     std::cout << "TEST PASSED!\n\n";
 }
 
-/**
- * @brief A Test to check an empty list
- * @returns void
- */
 void test5() {
     std::cout << "TEST CASE 5\n";
     std::cout << "Intialized a = {}\n";
@@ -324,25 +282,37 @@ void test5() {
     a.print();
     std::cout << "TEST PASSED!\n\n";
 }
-}  // namespace tests
 
 /**
- * @brief Function to test the correctness of the Circular Linked List
- * @returns void
+ * @brief 测试深拷贝正确性，验证修复成果
  */
+void test_copy() {
+    std::cout << "TEST COPY & ASSIGNMENT\n";
+    CircularLinkedList a;
+    a.insert({1, 2, 3});
+    
+    // 测试拷贝构造
+    CircularLinkedList b(a);
+    assert(b.values() == a.values());
+    
+    // 测试拷贝赋值
+    CircularLinkedList c;
+    c = a;
+    assert(c.values() == a.values());
+    std::cout << "TEST COPY PASSED!\n\n";
+}
+}  // namespace tests
+
 static void test() {
     tests::test1();
     tests::test2();
     tests::test3();
     tests::test4();
     tests::test5();
+    tests::test_copy();
 }
 
-/**
- * @brief main function
- * @returns 0 on exit
- */
 int main() {
-    test();  // run self-test implementations
+    test();  
     return 0;
 }

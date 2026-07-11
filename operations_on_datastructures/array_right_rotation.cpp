@@ -1,77 +1,75 @@
 /**
  * @file
- * @brief Implementation for the [Array right
- * Rotation](https://www.javatpoint.com/program-to-right-rotate-the-elements-of-an-array)
- * algorithm.
- * @details Shifting an array to the right involves moving each element of the
- * array so that it occupies a position of a certain shift value after its
- * current one. This implementation uses a result vector and does not mutate the
- * input.
+ * @brief Implementation for the [Array Right Rotation](https://www.javatpoint.com/program-to-right-rotate-the-elements-of-an-array) algorithm (数组循环右移算法实现)
+ *
+ * @details
+ * 数组循环右移（或向右旋转）是指将数组中的每个元素向右移动指定的偏移量。
+ * 移出数组右边界的元素会被循环地放到数组的开头部分。
+ * 本实现采用非原地（Out-of-place）算法，创建并返回一个新数组，不修改原输入数组。
+ *
+ * 时间复杂度: $O(N)$，其中 $N$ 是数组中的元素个数。
+ * 空间复杂度: $O(N)$，用于存储旋转后的结果数组。
+ *
+ * @note
+ * 【移位越界逻辑审计】：
+ * 1. 原设计规定：若偏移量 `shift` 大于或等于数组大小，则将其视为非法移位，直接返回空数组 `{}`。
+ *    该规则已被写入单元测试，因此我们保留该设定。
+ * 2. `shift == 0` 时，直接复制并返回原数组。
+ *
  * @see array_left_rotation.cpp
  * @author [Alvin](https://github.com/polarvoid)
  */
 
-#include <cassert>   /// for assert
-#include <iostream>  /// for IO operations
-#include <vector>    /// for std::vector
+#include <cassert>   
+#include <iostream>  
+#include <vector>    
 
-/**
- * @namespace operations_on_datastructures
- * @brief Operations on Data Structures
- */
 namespace operations_on_datastructures {
 
 /**
- * @brief Prints the values of a vector sequentially, ending with a newline
- * character.
- * @param array Reference to the array to be printed
- * @returns void
+ * @brief 顺序打印向量中的所有元素
+ * @param array 待打印的目标数组引用
  */
 void print(const std::vector<int32_t> &array) {
     for (int32_t i : array) {
-        std::cout << i << " ";  /// Print each value in the array
+        std::cout << i << " ";  
     }
-    std::cout << "\n";  /// Print newline
+    std::cout << "\n";  
 }
 
 /**
- * @brief Shifts the given vector to the right by the shift amount and returns a
- * new vector with the result. The original vector is not mutated.
- * @details Shifts the values of the vector, by creating a new vector and adding
- * values from the shift index to the end, then appending the rest of the
- * elements to the start of the vector.
- * @param array A reference to the input std::vector
- * @param shift The amount to be shifted to the right
- * @returns A std::vector with the shifted values
+ * @brief 将数组元素循环右移指定的偏移量并返回结果
+ * @param array 目标输入数组
+ * @param shift 右移偏移量
+ * @return 循环右移后的结果数组
  */
 std::vector<int32_t> shift_right(const std::vector<int32_t> &array,
                                  size_t shift) {
+    // 核心规则保留：如果移位步长超出或等于数组大小，视为非法输入返回空数组
     if (array.size() <= shift) {
-        return {};  ///< We got an invalid shift, return empty array
+        return {};  
     }
-    std::vector<int32_t> res(array.size());  ///< Result array
+    std::vector<int32_t> res(array.size());  
+    
+    // 1. 将原数组中前部偏左部分的元素移到结果数组的后半部
     for (size_t i = shift; i < array.size(); i++) {
-        res[i] = array[i - shift];  ///< Add values after the shift index
+        res[i] = array[i - shift];  
     }
+    // 2. 将原数组尾部的元素循环移动到结果数组的前半部
     for (size_t i = 0; i < shift; i++) {
-        res[i] =
-            array[array.size() - shift + i];  ///< Add the values from the start
+        res[i] = array[array.size() - shift + i];  
     }
     return res;
 }
 
 }  // namespace operations_on_datastructures
 
-/**
- * @namespace tests
- * @brief Testcases to check Union of Two Arrays.
- */
 namespace tests {
 using operations_on_datastructures::print;
 using operations_on_datastructures::shift_right;
+
 /**
- * @brief A Test to check an simple case
- * @returns void
+ * @brief 单元自测用例 1：常规右移移位测试
  */
 void test1() {
     std::cout << "TEST CASE 1\n";
@@ -81,12 +79,12 @@ void test1() {
     std::vector<int32_t> res = shift_right(arr, 2);
     std::vector<int32_t> expected = {4, 5, 1, 2, 3};
     assert(res == expected);
-    print(res);  ///< Should print 4 5 1 2 3
+    print(res);  
     std::cout << "TEST PASSED!\n\n";
 }
+
 /**
- * @brief A Test to check an empty vector
- * @returns void
+ * @brief 单元自测用例 2：空数组右移测试
  */
 void test2() {
     std::cout << "TEST CASE 2\n";
@@ -96,27 +94,27 @@ void test2() {
     std::vector<int32_t> res = shift_right(arr, 2);
     std::vector<int32_t> expected = {};
     assert(res == expected);
-    print(res);  ///< Should print empty newline
+    print(res);  
     std::cout << "TEST PASSED!\n\n";
 }
+
 /**
- * @brief A Test to check an invalid shift value
- * @returns void
+ * @brief 单元自测用例 3：超出数组大小的右移测试
  */
 void test3() {
     std::cout << "TEST CASE 3\n";
     std::cout << "Initialized arr = {1, 2, 3, 4, 5}\n";
     std::cout << "Expected result: {}\n";
     std::vector<int32_t> arr = {1, 2, 3, 4, 5};
-    std::vector<int32_t> res = shift_right(arr, 7);  ///< 7 > 5
+    std::vector<int32_t> res = shift_right(arr, 7);  
     std::vector<int32_t> expected = {};
     assert(res == expected);
-    print(res);  ///< Should print empty newline
+    print(res);  
     std::cout << "TEST PASSED!\n\n";
 }
+
 /**
- * @brief A Test to check a very large input
- * @returns void
+ * @brief 单元自测用例 4：大规模数据右移移位测试
  */
 void test4() {
     std::cout << "TEST CASE 4\n";
@@ -126,7 +124,6 @@ void test4() {
     for (int i = 1; i <= 210; i++) {
         arr.push_back(i * 2);
     }
-    print(arr);
     std::vector<int32_t> res = shift_right(arr, 1);
     std::vector<int32_t> expected;
     expected.push_back(420);
@@ -134,12 +131,12 @@ void test4() {
         expected.push_back(arr[i]);
     }
     assert(res == expected);
-    print(res);  ///< Should print {420, 2, 4, ..., 418}
+    print(res);  
     std::cout << "TEST PASSED!\n\n";
 }
+
 /**
- * @brief A Test to check a shift of zero
- * @returns void
+ * @brief 单元自测用例 5：零移位测试
  */
 void test5() {
     std::cout << "TEST CASE 5\n";
@@ -148,14 +145,13 @@ void test5() {
     std::vector<int32_t> arr = {1, 2, 3, 4, 5};
     std::vector<int32_t> res = shift_right(arr, 0);
     assert(res == arr);
-    print(res);  ///< Should print 1 2 3 4 5
+    print(res);  
     std::cout << "TEST PASSED!\n\n";
 }
 }  // namespace tests
 
 /**
- * @brief Function to test the correctness of shift_right() function
- * @returns void
+ * @brief 自测测试函数调用
  */
 static void test() {
     tests::test1();
@@ -166,10 +162,9 @@ static void test() {
 }
 
 /**
- * @brief main function
- * @returns 0 on exit
+ * @brief 主函数
  */
 int main() {
-    test();  // run self-test implementations
+    test();  // 运行测试用例确认正确性
     return 0;
 }

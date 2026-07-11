@@ -1,186 +1,163 @@
 /**
  * @file
- * @brief Implementation for the [Reversing a Binary
- * Tree](https://www.geeksforgeeks.org/reverse-tree-path/) recursively
- * algorithm.
- * @details A binary tree can be reversed by swapping the left and
- * right child of a node at each node, starting from the root, and
- * cascading below. This solution aims to provide an implementation of
- * a recursive reversal of a binary tree.
+ * @brief Implementation for the [Reversing a Binary Tree](https://www.geeksforgeeks.org/reverse-tree-path/) recursively algorithm (递归翻转二叉树算法实现)
+ *
+ * @details
+ * 翻转二叉树（又称镜像二叉树）是指将二叉树中所有节点的左右子树进行互换。
+ * 本实现采用自底向上的递归交换法，在访问每个节点时：
+ * 1. 递归翻转其左子树。
+ * 2. 递归翻转其右子树。
+ * 3. 交换当前节点的左右子树指针。
+ *
+ * 时间复杂度: $O(N)$，其中 $N$ 是二叉树的节点总数，因为每个节点恰好被访问一次。
+ * 空间复杂度: $O(h)$，其中 $h$ 是树的高度，主要用于递归系统调用栈。
+ *
+ * @note
+ * 【迭代析构与内存回收优化】：
+ * 1. **避免递归析构爆栈**：使用基于辅助栈的非递归方式释放二叉树内存，防止在极深树结构下因递归调用析构导致栈溢出。
+ * 2. **优化空节点压栈**：原析构逻辑会将空子节点也压入辅助栈。
+ *    **修复**：添加判断，只将非空子节点压入，提高空间效率并优化运行速度。
+ *
  * @author [Alvin](https://github.com/polarvoid)
  */
 
-#include <cassert>   /// For assert
-#include <iostream>  /// For IO operations
-#include <queue>     /// For std::queue
-#include <vector>    /// For std::vector
+#include <cassert>   
+#include <iostream>  
+#include <queue>     
+#include <vector>    
 
-/**
- * @namespace operations_on_datastructures
- * @brief Operations on Data Structures
- */
 namespace operations_on_datastructures {
-
-/**
- * @namespace reverse_binary_tree
- * @brief Functions for the [Reverse a Binary
- * Tree](https://www.geeksforgeeks.org/reverse-tree-path/) implementation
- */
 namespace reverse_binary_tree {
 
 /**
- * @brief A Node struct that represents a single node in a Binary Tree
+ * @brief 二叉树节点结构体
  */
 struct Node {
-    int64_t data;  ///< The value of the Node
-    Node* left;    ///< The Node's left child
-    Node* right;   ///< The Node's right child
-    /**
-     * @brief Creates a new Node with some initial data
-     */
-    explicit Node(int64_t _data) {
-        data = _data;     ///< Set value of Node data
-        left = nullptr;   ///< Initialize left child to NULL
-        right = nullptr;  ///< Initialize right child to NULL
-    }
+    int64_t data;  ///< 节点数值
+    Node* left;    ///< 左子节点指针
+    Node* right;   ///< 右子节点指针
+    
+    explicit Node(int64_t _data) : data(_data), left(nullptr), right(nullptr) {}
 };
 
 /**
- * @brief A Binary Tree class that implements a Binary Search Tree
- *(BST) by default.
+ * @brief 二叉搜索树/二叉树类
  */
 class BinaryTree {
  private:
-    Node* root;  ///< Pointer to root node of Binary Tree
+    Node* root;  ///< 根节点指针
+
     /**
-     * @brief inserts a node in the Binary Tree, with the behaviouur of
-     * a Binary Search Tree.
-     * @details Nodes with smaller values are inserted in the left
-     * subtree, and Nodes with larger values are inserted into the
-     * right subtree recursively. Time Complexity: O(log(n))
-     * @param data The data/value of the Node to be inserted
-     * @param pivot A pointer to the root node of the (sub)tree
-     * @returns Node pointer to the root
+     * @brief 递归在二叉搜索树中插入节点
      */
     Node* insert(int64_t data, Node* pivot) {
         if (pivot == nullptr) {
-            return new Node(data);  ///< Create new node
+            return new Node(data);  
         }
         if (data <= pivot->data) {
-            pivot->left =
-                insert(data, pivot->left);  ///< Insert Node to the left
+            pivot->left = insert(data, pivot->left);  
         } else {
-            pivot->right =
-                insert(data, pivot->right);  ///< Insert node to the right
+            pivot->right = insert(data, pivot->right);  
         }
-        return pivot;
-    }
-    /**
-     * @brief Reverses a Binary Tree recursively by swapping the left and
-     * right subtrees and their children.
-     * @param pivot A reference to the root of the (sub)tree
-     * @returns Node pointer to root node
-     */
-    Node* reverseBinaryTree(Node* pivot) {
-        if (pivot == nullptr) {
-            return pivot;  ///< Base case
-        }
-        Node* temp = pivot->left;  ///< pointer to the left subtree
-        pivot->left = reverseBinaryTree(pivot->right);  ///< Swap
-        pivot->right = reverseBinaryTree(temp);         ///< Swap
         return pivot;
     }
 
+    /**
+     * @brief 递归翻转二叉树核心函数
+     */
+    Node* reverseBinaryTree(Node* pivot) {
+        if (pivot == nullptr) {
+            return nullptr;  
+        }
+        Node* temp = pivot->left;  
+        pivot->left = reverseBinaryTree(pivot->right);  
+        pivot->right = reverseBinaryTree(temp);         
+        return pivot;
+    }
+
+    // 禁止拷贝构造和赋值
     BinaryTree(const BinaryTree&) = delete;
     BinaryTree& operator=(const BinaryTree&) = delete;
 
  public:
-    /**
-     * @brief Creates a BinaryTree with a root pointing to NULL.
-     */
-    BinaryTree() { root = nullptr; }
-    /**
-     * @brief Creates a BinaryTree with a root with an initial value.
-     */
-    explicit BinaryTree(int64_t data) { root = new Node(data); }
+    BinaryTree() : root(nullptr) {}
 
+    explicit BinaryTree(int64_t data) : root(new Node(data)) {}
+
+    /**
+     * @brief 析构函数，使用非递归栈方式安全释放所有节点内存
+     */
     ~BinaryTree() {
+        if (root == nullptr) return;
         std::vector<Node*> nodes;
         nodes.emplace_back(root);
         while (!nodes.empty()) {
-            const auto cur_node = nodes.back();
+            Node* cur_node = nodes.back();
             nodes.pop_back();
-            if (cur_node) {
+            // 核心优化：避免将空指针压入 vector
+            if (cur_node->left != nullptr) {
                 nodes.emplace_back(cur_node->left);
-                nodes.emplace_back(cur_node->right);
-                delete cur_node;
             }
+            if (cur_node->right != nullptr) {
+                nodes.emplace_back(cur_node->right);
+            }
+            delete cur_node;
         }
     }
 
     /**
-     * @brief Adds a new Node to the Binary Tree
+     * @brief 添加一个节点到树中
      */
     void add(int64_t data) { root = insert(data, root); }
+
     /**
-     * Reverses the Binary Tree
+     * @brief 翻转整棵树
      */
     void reverse() { root = reverseBinaryTree(root); }
+
     /**
-     * @brief Level order traversal of a tree consists of visiting its
-     * elements, top to bottom, left to right. This function performs
-     * level order traversal and returns the node datas as a vector.
-     * @details The function uses a queue to append and remove elements
-     * as they are visited, and then adds their children, if any. This
-     * ensures that the elements are visited layer-by-layer, starting
-     * from the root of the Tree.
-     * @returns vector<int64_t> of nodes of the tree.
+     * @brief 广度优先搜索/层序遍历二叉树，按层返回数据向量
      */
-    std::vector<int64_t> get_level_order() {
-        std::vector<int64_t> data;  ///< Result vector of int
+    std::vector<int64_t> get_level_order() const {
+        std::vector<int64_t> data;  
         if (root == nullptr) {
-            return data;  ///< Return empty vector if root is Invalid
+            return data;  
         }
-        std::queue<Node*> nodes;  ///< Queue of the nodes in the tree
-        nodes.push(root);         ///< Insert root into the queue
+        std::queue<Node*> nodes;  
+        nodes.push(root);         
         while (!nodes.empty()) {
-            Node* temp = nodes.front();  ///< Copy the first element
-            data.push_back(temp->data);  ///< Add the element to the data
-            nodes.pop();                 ///< Remove element
+            Node* temp = nodes.front();  
+            data.push_back(temp->data);  
+            nodes.pop();                 
             if (temp->left != nullptr) {
-                nodes.push(temp->left);  ///< Insert left node
+                nodes.push(temp->left);  
             }
             if (temp->right != nullptr) {
-                nodes.push(temp->right);  ///< Insert right node
+                nodes.push(temp->right);  
             }
-        }  /// Add nodes while Tree is not empty
+        }  
         return data;
     }
+
     /**
-     * @brief Prints all of the elements in the tree to stdout
-     * level-by-level, using the get_level_order() function.
-     * @returns void
+     * @brief 按层序序列打印整棵树到标准输出
      */
-    void print() {
+    void print() const {
         for (int i : get_level_order()) {
-            std::cout << i << " ";  /// Print each element in the tree
+            std::cout << i << " ";  
         }
-        std::cout << "\n";  /// Print newline
+        std::cout << "\n";  
     }
 };
 
 }  // namespace reverse_binary_tree
 }  // namespace operations_on_datastructures
 
-/**
- * @namespace tests
- * @brief Testcases to check Reversal of Binary Tree.
- */
 namespace tests {
-using operations_on_datastructures::reverse_binary_tree::
-    BinaryTree;  ///< Use the BinaryTree
+using operations_on_datastructures::reverse_binary_tree::BinaryTree;
+
 /**
- * @brief A Test to check an edge case (single element reversal)
+ * @brief 单元自测用例 1：单个元素树的翻转
  */
 void test1() {
     BinaryTree bst;
@@ -194,17 +171,15 @@ void test1() {
     std::cout << "After reversal: ";
     bst.reverse();
     post_reversal = bst.get_level_order();
-    assert(pre_reversal.size() ==
-           post_reversal.size());  ///< Check for equal sizes
-    assert(pre_reversal.size() ==
-           1);  ///< Ensure that there is only one element
-    assert(pre_reversal[0] ==
-           post_reversal[0]);  ///< Check if both elements are same
+    assert(pre_reversal.size() == post_reversal.size());  
+    assert(pre_reversal.size() == 1);  
+    assert(pre_reversal[0] == post_reversal[0]);  
     bst.print();
     std::cout << "TEST PASSED!\n\n";
 }
+
 /**
- * @brief A Test to check an edge case (NULL root element)
+ * @brief 单元自测用例 2：空树的翻转
  */
 void test2() {
     BinaryTree bst;
@@ -217,15 +192,14 @@ void test2() {
     std::cout << "After reversal: ";
     bst.reverse();
     post_reversal = bst.get_level_order();
-    assert(pre_reversal.size() ==
-           post_reversal.size());  ///< Check for equal sizes
-    assert(pre_reversal.size() ==
-           0);  ///< Ensure that there is only one element
+    assert(pre_reversal.size() == post_reversal.size());  
+    assert(pre_reversal.size() == 0);  
     bst.print();
     std::cout << "TEST PASSED!\n\n";
 }
+
 /**
- * @brief A Test to check correct reversal of a Binary Tree
+ * @brief 单元自测用例 3：常规二叉树的多层翻转
  */
 void test3() {
     BinaryTree bst;
@@ -242,32 +216,28 @@ void test3() {
     bst.add(7);
     bst.add(1);
     pre_reversal = bst.get_level_order();
-    assert(pre_reversal == pre_res);  ///< Check for equality
+    assert(pre_reversal == pre_res);  
     std::cout << "Before reversal: ";
     bst.print();
     std::cout << "After reversal: ";
     bst.reverse();
     post_reversal = bst.get_level_order();
-    assert(post_reversal == post_res);  ///< Check for equality
+    assert(post_reversal == post_res);  
     bst.print();
     std::cout << "TEST PASSED!\n\n";
 }
 }  // namespace tests
 
-/**
- * @brief Function to test the correctness of the Tree Reversal
- */
 static void test() {
-    tests::test1();  ///< Single element test
-    tests::test2();  ///< No element test
-    tests::test3();  ///< Correct reversal test
+    tests::test1();  
+    tests::test2();  
+    tests::test3();  
 }
 
 /**
- * @brief main function
- * @returns 0 on exit
+ * @brief 主函数
  */
 int main() {
-    test();  // run self-test implementations
+    test();  // 运行测试用例确认正确性
     return 0;
 }

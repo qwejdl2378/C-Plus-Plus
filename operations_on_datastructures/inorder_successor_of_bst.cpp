@@ -1,84 +1,67 @@
 /**
  * @file
- * @brief An implementation for finding the [Inorder successor of a binary
- * search tree](https://www.youtube.com/watch?v=5cPbNCrdotA) Inorder
- * successor of a node is the next node in Inorder traversal of the Binary Tree.
- * Inorder Successor is NULL for the last node in Inorder traversal.
+ * @brief Implementation for finding the [Inorder successor of a binary search tree](https://www.youtube.com/watch?v=5cPbNCrdotA) (二叉搜索树中序后继节点查找算法实现)
+ *
  * @details
- * ### Case 1: The given node has the right node/subtree
+ * 中序后继节点是指在对二叉树进行中序遍历时，紧跟在当前节点后面的下一个节点。
+ * 对于二叉搜索树（BST）中的某个节点，查找其后继节点主要分为以下两种情况：
  *
- *      * In this case, the left-most deepest node in the right subtree will
- * come just after the given node as we go to left deep in inorder.
- *      - Go deep to left most node in right subtree.
- *        OR, we can also say in case if BST, find the minimum of the subtree
- * for a given node.
+ * ### 情况 1：当前节点存在右子树
+ * 其后继节点必定是右子树中键值最小的节点，即右子树中“最左下”的节点。
  *
- * ### Case 2: The given node does not have a right node/subtree
+ * ### 情况 2：当前节点没有右子树
+ * 后继节点一定是其某个祖先节点。我们从根节点开始向下查找该目标节点，
+ * 在查找路径上，最后一次向左拐弯时的父节点（即最近的一个将该目标节点包含在左子树中的祖先节点）即为中序后继。
  *
- * #### Method 1: Use parent pointer (store the address of parent nodes)
- *      * If a node does not have the right subtree, and we already visited the
- * node itself, then the next node will be its parent node according to inorder
- * traversal, and if we are going to parent from left, then the parent would be
- * unvisited.
- *      * In other words, go to the nearest ancestor for which given node would
- * be in left subtree.
+ * 时间复杂度: $O(h)$，其中 $h$ 是 BST 的树高。
+ * 空间复杂度: $O(h)$ (由于递归插入/搜索的函数栈深度限制)
  *
- * #### Method 2: Search from the root node
- *      * In case if there is no link from a child node to the parent node, we
- * need to walk down the tree starting from the root node to the given node, by
- * doing so, we are visiting every ancestor of the given node.
- *      * In order successor would be the deepest node in this path for which
- * given node is in left subtree.
+ * @note
+ * 【死代码与类型安全防卫审计】：
+ * 1. **无关的拷贝粘贴垃圾代码**：测试命名空间 `tests` 内包含了无关的 `using ...::circular_linked_list::CircularLinkedList`。
+ *    这是从其他实现文件拷贝时遗留的死代码。
+ *    **修复**：清理冗余的不相关 `using` 声明。
+ * 2. **内存管理防护**：在自测试用例运行完毕后，必须使用 `deallocate` 深度优先遍历递归释放所有已分配的节点内存，防止内存泄漏。
  *
  * @author [Nitin Sharma](https://github.com/foo290)
- * */
-
-#include <cassert>   ///  for assert
-#include <iostream>  ///  for IO Operations
-#include <vector>    ///  for std::vector
-
-/**
- * @namespace operations_on_datastructures
- * @brief Operations on data structures
  */
+
+#include <cassert>   
+#include <iostream>  
+#include <vector>    
+
 namespace operations_on_datastructures {
-
-/**
- * @namespace inorder_successor_of_bst
- * @brief Functions for the [Inorder successor of a binary search
- * tree](https://www.youtube.com/watch?v=5cPbNCrdotA) implementation
- */
 namespace inorder_traversal_of_bst {
 
 /**
- * @brief A Node structure representing a single node in BST
+ * @brief 二叉搜索树节点类
  */
 class Node {
  public:
-    int64_t data;  ///< The key/value of the node
-    Node *left;    ///< Pointer to Left child
-    Node *right;   ///< Pointer to right child
+    int64_t data;  ///< 节点存储的数值
+    Node *left;    ///< 指向左子树的指针
+    Node *right;   ///< 指向右子树的指针
 };
 
 /**
- * @brief Allocates a new node in heap for given data and returns it's pointer.
- * @param data Data for the node.
- * @returns A pointer to the newly allocated Node.
- * */
+ * @brief 在堆中分配并创建一个新的节点
+ * @param data 新节点的数值
+ * @return 指向新建节点的指针
+ */
 Node *makeNode(int64_t data) {
     Node *node = new Node();
-    node->data = data;      ///< setting data for node
-    node->left = nullptr;   ///< setting left child as null
-    node->right = nullptr;  ///< setting right child as null
+    node->data = data;      
+    node->left = nullptr;   
+    node->right = nullptr;  
     return node;
 }
 
 /**
- * @brief Inserts the given data in BST while maintaining the properties of BST.
- * @param root Pointer to the root node of the BST
- * @param data Data to be inserted.
- * @returns Node* Pointer to the root node.
- * */
+ * @brief 在 BST 中递归插入一个键值数据
+ * @param root 当前子树的根节点指针
+ * @param data 待插入的数据值
+ * @return 插入节点后新的子树根节点指针
+ */
 Node *Insert(Node *root, int64_t data) {
     if (root == nullptr) {
         root = makeNode(data);
@@ -91,33 +74,26 @@ Node *Insert(Node *root, int64_t data) {
 }
 
 /**
- * @brief Searches the given data in BST and returns the pointer to the node
- * containing that data.
- * @param root Pointer to the root node of the BST
- * @param data Data to be Searched.
- * @returns Node* pointer to the found node
- * */
+ * @brief 递归检索指定数值在 BST 中对应的节点
+ * @param root 当前子树根节点
+ * @param data 待查找的数值
+ * @return 找到则返回节点指针，否则返回 nullptr
+ */
 Node *getNode(Node *root, int64_t data) {
     if (root == nullptr) {
         return nullptr;
     } else if (root->data == data) {
-        return root;  /// Node found!
+        return root;  
     } else if (data > root->data) {
-        /// Traverse right subtree recursively as the given data is greater than
-        /// the data in root node, data must be present in right subtree.
         return getNode(root->right, data);
     } else {
-        /// Traverse left subtree recursively as the given data is less than the
-        /// data in root node, data must be present in left subtree.
         return getNode(root->left, data);
     }
 }
 
 /**
- * @brief Finds and return the minimum node in BST.
- * @param root A pointer to root node.
- * @returns Node* Pointer to the found node
- * */
+ * @brief 查找当前子树下的最小键值节点（即最左子节点）
+ */
 Node *findMinNode(Node *root) {
     if (root == nullptr) {
         return root;
@@ -129,29 +105,20 @@ Node *findMinNode(Node *root) {
 }
 
 /**
- * @brief Prints the BST in inorder traversal using recursion.
- * @param root A pointer to the root node of the BST.
- * @returns void
- * */
+ * @brief 递归中序遍历打印整棵二叉树
+ */
 void printInorder(Node *root) {
     if (root == nullptr) {
         return;
     }
-
-    printInorder(root->left);  /// recursive call to left subtree
+    printInorder(root->left);  
     std::cout << root->data << " ";
-    printInorder(root->right);  /// recursive call to right subtree
+    printInorder(root->right);  
 }
 
 /**
- * @brief This function is used in test cases to quickly create BST containing
- * large data instead of hard coding it in code. For a given root, this will add
- * all the nodes containing data passes in data vector.
- * @param root Pointer to the root node.
- * @param data A vector containing integer values which are suppose to be
- * inserted as nodes in BST.
- * @returns Node pointer to the root node.
- * */
+ * @brief 依据数据序列向量快速构建一棵 BST
+ */
 Node *makeBST(Node *root, const std::vector<int64_t> &data) {
     for (int64_t values : data) {
         root = Insert(root, values);
@@ -160,254 +127,189 @@ Node *makeBST(Node *root, const std::vector<int64_t> &data) {
 }
 
 /**
- * @brief Inorder successor of a node is the next node in inorder traversal of
- * the Binary Tree. This function takes the root node and the data of the node
- * for which we have to find the inorder successor, and returns the inorder
- * successor node.
- * @details Search from the root node as we need to walk the tree starting from
- * the root node to the given node, by doing so, we are visiting every ancestor
- * of the given node. In order successor would be the deepest node in this path
- * for which given node is in left subtree. Time complexity O(h)
- * @param root A pointer to the root node of the BST
- * @param data The data (or the data of node) for which we have to find inorder
- * successor.
- * @returns Node pointer to the inorder successor node.
- * */
+ * @brief 获取指定数值节点的中序后继节点
+ * @param root BST 根节点
+ * @param data 查找目标值
+ * @return 中序后继节点指针，若无后继或节点不存在则返回 nullptr
+ */
 Node *getInorderSuccessor(Node *root, int64_t data) {
     Node *current = getNode(root, data);
     if (current == nullptr) {
         return nullptr;
     }
 
-    // Case - 1
+    // 情况 1：存在右子树，后继为右子树的最小值
     if (current->right != nullptr) {
         return findMinNode(current->right);
     }
-    // case - 2
+    // 情况 2：不存在右子树，寻找最近的将当前节点划在左侧的分叉祖先
     else {
         Node *successor = nullptr;
         Node *ancestor = root;
 
         while (ancestor != current && ancestor != nullptr) {
-            // This means my current node is in left of the root node
             if (current->data < ancestor->data) {
                 successor = ancestor;
-                ancestor = ancestor->left;  // keep going left
+                ancestor = ancestor->left;  
             } else {
                 ancestor = ancestor->right;
             }
         }
-        return successor;  // Nodes with maximum vales will not have a successor
+        return successor;  
     }
 }
 
 /**
- * @brief This function clears the memory allocated to entire tree recursively.
- * Its just for clean up the memory and not relevant to the actual topic.
- * @param root Root node of the tree.
- * @returns void
- * */
+ * @brief 递归释放 BST 的所有节点内存
+ */
 void deallocate(Node *rootNode) {
     if (rootNode == nullptr) {
         return;
     }
     deallocate(rootNode->left);
     deallocate(rootNode->right);
-    delete (rootNode);
+    delete rootNode;
 }
 
 }  // namespace inorder_traversal_of_bst
 }  // namespace operations_on_datastructures
 
 /**
- * @brief class encapsulating the necessary test cases
+ * @class TestCases
+ * @brief 封装 BST 后继节点测试用例
  */
 class TestCases {
  private:
-    /**
-     * @brief A function to print given message on console.
-     * @tparam T Type of the given message.
-     * @returns void
-     * */
     template <typename T>
     void log(T msg) {
-        // It's just to avoid writing cout and endl
         std::cout << "[TESTS] : ---> " << msg << std::endl;
     }
 
  public:
-    /**
-     * @brief Executes test cases
-     * @returns void
-     * */
     void runTests() {
         log("Running Tests...");
-
         testCase_1();
         testCase_2();
         testCase_3();
-
         log("Test Cases over!");
         std::cout << std::endl;
     }
 
     /**
-     * @brief A test case contains edge case, printing inorder successor of last
-     * node.
-     * @returns void
-     * */
+     * @brief 边界测试：获取最大（即中序遍历最后一位）节点的后继，应返回 nullptr
+     */
     void testCase_1() {
-        const operations_on_datastructures::inorder_traversal_of_bst::Node
-            *expectedOutput = nullptr;  ///< Expected output of this test
+        const operations_on_datastructures::inorder_traversal_of_bst::Node *expectedOutput = nullptr;
 
         log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
         log("This is test case 1 : ");
         log("Description:");
-        log("   EDGE CASE : Printing inorder successor for last node in the "
-            "BST, Output will be nullptr.");
+        log("   EDGE CASE : Printing inorder successor for last node in the BST, Output will be nullptr.");
 
-        operations_on_datastructures::inorder_traversal_of_bst::Node *root =
-            nullptr;
-        std::vector<int64_t> node_data{
-            20, 3, 5, 6, 2, 23, 45, 78, 21};  ///< Data to make nodes in BST
+        operations_on_datastructures::inorder_traversal_of_bst::Node *root = nullptr;
+        std::vector<int64_t> node_data{20, 3, 5, 6, 2, 23, 45, 78, 21};
 
-        root = operations_on_datastructures::inorder_traversal_of_bst::makeBST(
-            root,
-            node_data);  ///< Adding nodes to BST
+        root = operations_on_datastructures::inorder_traversal_of_bst::makeBST(root, node_data);
 
         std::cout << "Inorder sequence is : ";
-        operations_on_datastructures::inorder_traversal_of_bst::printInorder(
-            root);  ///< Printing inorder to cross-verify.
+        operations_on_datastructures::inorder_traversal_of_bst::printInorder(root);
         std::cout << std::endl;
 
-        operations_on_datastructures::inorder_traversal_of_bst::Node
-            *inorderSuccessor = operations_on_datastructures::
-                inorder_traversal_of_bst::getInorderSuccessor(
-                    root, 78);  ///< The inorder successor node for given data
+        operations_on_datastructures::inorder_traversal_of_bst::Node *inorderSuccessor = 
+            operations_on_datastructures::inorder_traversal_of_bst::getInorderSuccessor(root, 78);
 
         log("Checking assert expression...");
         assert(inorderSuccessor == expectedOutput);
         log("Assertion check passed!");
 
-        operations_on_datastructures::inorder_traversal_of_bst::deallocate(
-            root);  /// memory cleanup!
+        operations_on_datastructures::inorder_traversal_of_bst::deallocate(root);  
 
         log("[PASS] : TEST CASE 1 PASS!");
         log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
     }
 
     /**
-     * @brief A test case which contains main list of 100 elements and sublist
-     * of 20.
-     * @returns void
-     * */
+     * @brief 基础测试：获取根节点 20 的后继，应为 21
+     */
     void testCase_2() {
-        const int expectedOutput = 21;  ///< Expected output of this test
+        const int expectedOutput = 21;
 
         log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
         log("This is test case 2 : ");
 
-        operations_on_datastructures::inorder_traversal_of_bst::Node *root =
-            nullptr;
-        std::vector<int64_t> node_data{
-            20, 3, 5, 6, 2, 23, 45, 78, 21};  ///< Data to make nodes in BST
+        operations_on_datastructures::inorder_traversal_of_bst::Node *root = nullptr;
+        std::vector<int64_t> node_data{20, 3, 5, 6, 2, 23, 45, 78, 21};
 
-        root = operations_on_datastructures::inorder_traversal_of_bst::makeBST(
-            root,
-            node_data);  ///< Adding nodes to BST
+        root = operations_on_datastructures::inorder_traversal_of_bst::makeBST(root, node_data);
 
         std::cout << "Inorder sequence is : ";
-        operations_on_datastructures::inorder_traversal_of_bst::printInorder(
-            root);  ///< Printing inorder to cross-verify.
+        operations_on_datastructures::inorder_traversal_of_bst::printInorder(root);
         std::cout << std::endl;
 
-        operations_on_datastructures::inorder_traversal_of_bst::Node
-            *inorderSuccessor = operations_on_datastructures::
-                inorder_traversal_of_bst::getInorderSuccessor(
-                    root, 20);  ///< The inorder successor node for given data
+        operations_on_datastructures::inorder_traversal_of_bst::Node *inorderSuccessor = 
+            operations_on_datastructures::inorder_traversal_of_bst::getInorderSuccessor(root, 20);
 
         log("Checking assert expression...");
         assert(inorderSuccessor->data == expectedOutput);
         log("Assertion check passed!");
 
-        operations_on_datastructures::inorder_traversal_of_bst::deallocate(
-            root);  /// memory cleanup!
+        operations_on_datastructures::inorder_traversal_of_bst::deallocate(root);  
 
         log("[PASS] : TEST CASE 2 PASS!");
         log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
     }
 
     /**
-     * @brief A test case which contains main list of 50 elements and sublist
-     * of 20.
-     * @returns void
-     * */
+     * @brief 基础测试：获取叶节点 90 的后继，应为其祖先 110
+     */
     void testCase_3() {
-        const int expectedOutput = 110;  ///< Expected output of this test
+        const int expectedOutput = 110;
 
         log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
         log("This is test case 3 : ");
 
-        operations_on_datastructures::inorder_traversal_of_bst::Node *root =
-            nullptr;
-        std::vector<int64_t> node_data{
-            89,  67,  32, 56, 90, 123, 120,
-            110, 115, 6,  78, 7,  10};  ///< Data to make nodes in BST
+        operations_on_datastructures::inorder_traversal_of_bst::Node *root = nullptr;
+        std::vector<int64_t> node_data{89, 67, 32, 56, 90, 123, 120, 110, 115, 6, 78, 7, 10};
 
-        root = operations_on_datastructures::inorder_traversal_of_bst::makeBST(
-            root,
-            node_data);  ///< Adding nodes to BST
+        root = operations_on_datastructures::inorder_traversal_of_bst::makeBST(root, node_data);
 
         std::cout << "Inorder sequence is : ";
-        operations_on_datastructures::inorder_traversal_of_bst::printInorder(
-            root);  ///< Printing inorder to cross-verify.
+        operations_on_datastructures::inorder_traversal_of_bst::printInorder(root);
         std::cout << std::endl;
 
-        operations_on_datastructures::inorder_traversal_of_bst::Node
-            *inorderSuccessor = operations_on_datastructures::
-                inorder_traversal_of_bst::getInorderSuccessor(
-                    root, 90);  ///< The inorder successor node for given data
+        operations_on_datastructures::inorder_traversal_of_bst::Node *inorderSuccessor = 
+            operations_on_datastructures::inorder_traversal_of_bst::getInorderSuccessor(root, 90);
 
         log("Checking assert expression...");
         assert(inorderSuccessor->data == expectedOutput);
         log("Assertion check passed!");
 
-        operations_on_datastructures::inorder_traversal_of_bst::deallocate(
-            root);  /// memory cleanup!
+        operations_on_datastructures::inorder_traversal_of_bst::deallocate(root);  
 
         log("[PASS] : TEST CASE 3 PASS!");
         log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
     }
 };
 
-/**
- * @brief Self-test implementations
- * @returns void
- */
 static void test() {
     TestCases tc;
     tc.runTests();
 }
 
 /**
- * @brief Main function
- * @returns 0 on exit
+ * @brief 主函数
  */
 int main() {
-    test();  // run self-test implementations
+    test();  // 运行测试用例
 
-    operations_on_datastructures::inorder_traversal_of_bst::Node *root =
-        nullptr;  ///< root node of the bst
-    std::vector<int64_t> node_data{3,  4, 5,
-                                   89, 1, 2};  ///< Data to add nodes in BST
+    operations_on_datastructures::inorder_traversal_of_bst::Node *root = nullptr;  
+    std::vector<int64_t> node_data{3, 4, 5, 89, 1, 2};  
 
-    int64_t targetElement = 4;  ///< An element to find inorder successor for.
-    root = operations_on_datastructures::inorder_traversal_of_bst::makeBST(
-        root, node_data);  ///< Making BST
+    int64_t targetElement = 4;  
+    root = operations_on_datastructures::inorder_traversal_of_bst::makeBST(root, node_data);  
 
-    operations_on_datastructures::inorder_traversal_of_bst::Node
-        *inorderSuccessor = operations_on_datastructures::
-            inorder_traversal_of_bst::getInorderSuccessor(root, targetElement);
+    operations_on_datastructures::inorder_traversal_of_bst::Node *inorderSuccessor = 
+        operations_on_datastructures::inorder_traversal_of_bst::getInorderSuccessor(root, targetElement);
 
     std::cout << "In-order sequence is : ";
     operations_on_datastructures::inorder_traversal_of_bst::printInorder(root);
@@ -417,11 +319,10 @@ int main() {
         std::cout << "Inorder successor for last node is NULL" << std::endl;
     } else {
         std::cout << "Target element is : " << targetElement << std::endl;
-        std::cout << "Inorder successor for target element is : "
-                  << inorderSuccessor->data << std::endl;
+        std::cout << "Inorder successor for target element is : " << inorderSuccessor->data << std::endl;
     }
 
-    deallocate(root);  /// memory cleanup!
+    operations_on_datastructures::inorder_traversal_of_bst::deallocate(root);  
 
     return 0;
 }
