@@ -1,102 +1,74 @@
 /**
  * @file
- * @brief
- * The
- * [Boyer–Moore](https://en.wikipedia.org/wiki/Boyer%E2%80%93Moore_string-search_algorithm)
- * algorithm searches for occurrences of pattern P in text T by performing
- * explicit character comparisons at different alignments. Instead of a
- * brute-force search of all alignments (of which there are n - m + 1),
- * Boyer–Moore uses information gained by preprocessing P to skip as many
- * alignments as possible.
+ * @brief Implementation of the [Boyer-Moore String Search Algorithm](https://en.wikipedia.org/wiki/Boyer%E2%80%93Moore_string-search_algorithm) (Boyer-Moore 字符串检索算法实现)
  *
  * @details
- * The key insight in this algorithm is that if the end of the pattern is
- * compared to the text, then jumps along the text can be made rather than
- * checking every character of the text. The reason that this works is that in
- * lining up the pattern against the text, the last character of the pattern is
- * compared to the character in the text.
+ * Boyer-Moore 算法是一种非常高效的字符串匹配算法。
+ * 与传统的从左往右逐字符匹配的朴素算法不同，Boyer-Moore 在将模式串与主串对齐后，
+ * **从右往左（自模式串的末尾向头部）**进行字符比较。
  *
- * If the characters do not match, there is no need to continue searching
- * backwards along the text. This leaves us with two cases.
+ * ### 核心启发式规则 (Shift Rules)
+ * 1. **坏字符规则 (Bad Character Heuristic)**：
+ *    当在主串的某个位置发生不匹配时，该不匹配的字符被称为“坏字符”。
+ *    - 如果该坏字符在模式串中不存在，可以直接将模式串向右滑动整个模式串长度。
+ *    - 如果该坏字符在模式串中存在，将模式串中最右边的该字符与主串中的坏字符对齐。
+ * 2. **好后缀规则 (Good Suffix Heuristic)**：
+ *    当发生不匹配时，已经匹配成功的部分后缀称为“好后缀”。
+ *    - 如果模式串中有另一段子串能匹配该好后缀，则将该子串向右滑动与好后缀对齐。
+ *    - 如果没有，则寻找好后缀的某个最长前缀，使其与模式串的某个最长后缀相同，将二者对齐。
  *
- * Case 1:
- * If the character in the text does not match any of the characters in the
- * pattern, then the next character in the text to check is located m characters
- * farther along the text, where m is the length of the pattern.
+ * 每一步滑动的距离取这两种规则计算出的滑动值的**最大值**：`max(bad_char_shift, good_suffix_shift)`。
  *
- * Case 2:
- * If the character in the text is in the pattern, then a partial shift of the
- * pattern along the text is done to line up along the matching character and
- * the process is repeated.
+ * 时间复杂度: 最好情况 $O(N/M)$，最坏情况 $O(N \cdot M)$ (通常在实际文本搜索中表现出亚线性时间复杂度)。
+ * 空间复杂度: $O(M + |\Sigma|)$，其中 $|\Sigma|$ 是字符集大小。
  *
- * There are two shift rules:
+ * @note
+ * 【非 ASCII 字符越界访问与空输入 Bug 审计与修复】：
+ * 1. **非 ASCII 字符导致数组越界崩溃 Bug**：原代码将字符集大小硬编码为 `CHAR_MAX`（通常为 127）。
+ *    在处理含有中文、特殊符号或扩展 ASCII 码（0x80 - 0xFF）的字符串时，
+ *    有符号类型的 `char` 会被解释为负数（例如 `-128` 到 `-1`），作为下标访问 `bad_char` 数组时会直接引发**内存越界读写崩溃（段错误）**。
+ *    **修复**：将字符集大小统一扩展到 `256`（即 `UCHAR_MAX + 1`），并在所有使用字符作为下标的地方，
+ *    通过 `static_cast<unsigned char>` 进行强制无符号转换，杜绝越界隐患。
+ * 2. **空字符串下溢崩溃风险**：如果传入空的模式串，
+ *    计算 `index_position = arg.pat.size() - 1` 会产生无符号整数下溢。
+ *    **修复**：在 `search` 接口增加防线：`if (arg.pat.empty() || str.empty() || arg.pat.size() > str.size()) return {};`。
  *
- * [The bad character rule]
- * (https://en.wikipedia.org/wiki/Boyer%E2%80%93Moore_string-search_algorithm#The_bad_character_rule)
- *
- * [The good suffix rule]
- * (https://en.wikipedia.org/wiki/Boyer%E2%80%93Moore_string-search_algorithm#The_good_suffix_rule)
- *
- * The shift rules are implemented as constant-time table lookups, using tables
- * generated during the preprocessing of P.
  * @author [Stoycho Kyosev](https://github.com/stoychoX)
  */
 
-#include <cassert>   /// for assert
-#include <climits>   /// for CHAR_MAX macro
-#include <cstring>   /// for strlen
-#include <iostream>  /// for IO operations
-#include <string>    /// for std::string
-#include <vector>    /// for std::vector
+#include <cassert>   /// 用于 assert 断言
+#include <climits>   /// 用于 UCHAR_MAX
+#include <cstring>   /// 用于 std::strlen
+#include <iostream>  /// 用于输入输出
+#include <string>    /// 用于 std::string
+#include <vector>    /// 用于 std::vector
+#include <algorithm> ///< 用于 std::max
 
-#define APLHABET_SIZE CHAR_MAX  ///< number of symbols in the alphabet we use
+// 使用无符号字符的最大范围 256 作为字符表大小，彻底解决 signed char 负数下标越界 Bug
+constexpr size_t ALPHABET_SIZE = UCHAR_MAX + 1; 
 
-/**
- * @namespace
- * @brief String algorithms
- */
 namespace strings {
-/**
- * @namespace
- * @brief Functions for the [Boyer
- * Moore](https://en.wikipedia.org/wiki/Boyer%E2%80%93Moore_string-search_algorithm)
- * algorithm implementation
- */
 namespace boyer_moore {
+
 /**
- * @brief A structure representing all the data we need to search the
- * preprocessed pattern in text.
+ * @brief 存放预处理模式串后得到的启发式规则表结构体
  */
 struct pattern {
-    std::string pat;
-
-    std::vector<size_t>
-        bad_char;  ///< bad char table used in [Bad Character
-                   ///< Heuristic](https://www.geeksforgeeks.org/boyer-moore-algorithm-for-pattern-searching/)
-
-    std::vector<size_t>
-        good_suffix;  ///< good suffix table used for [Good Suffix
-                      ///< heuristic](https://www.geeksforgeeks.org/boyer-moore-algorithm-good-suffix-heuristic/?ref=rp)
+    std::string pat;               ///< 存放的模式串
+    std::vector<size_t> bad_char;  ///< 坏字符规则表
+    std::vector<size_t> good_suffix; ///< 好后缀规则表
 };
 
 /**
- * @brief A function that preprocess the good suffix thable
- *
- * @param str The string being preprocessed
- * @param arg The good suffix table
- * @returns void
+ * @brief 预处理好后缀规则表
  */
 void init_good_suffix(const std::string& str, std::vector<size_t>& arg) {
     arg.resize(str.size() + 1, 0);
 
-    // border_pos[i] - the index of the longest proper suffix of str[i..] which
-    // is also a proper prefix.
+    // border_pos[i] 保存子串 str[i..] 中既是其真后缀又是其真前缀的最长边位置
     std::vector<size_t> border_pos(str.size() + 1, 0);
-
     size_t current_char = str.length();
-
     size_t border_index = str.length() + 1;
-
     border_pos[current_char] = border_index;
 
     while (current_char > 0) {
@@ -105,23 +77,18 @@ void init_good_suffix(const std::string& str, std::vector<size_t>& arg) {
             if (arg[border_index] == 0) {
                 arg[border_index] = border_index - current_char;
             }
-
             border_index = border_pos[border_index];
         }
-
         current_char--;
         border_index--;
         border_pos[current_char] = border_index;
     }
 
     size_t largest_border_index = border_pos[0];
-
     for (size_t i = 0; i < str.size(); i++) {
         if (arg[i] == 0) {
             arg[i] = largest_border_index;
         }
-
-        // If we go pass the largest border we find the next one as we iterate
         if (i == largest_border_index) {
             largest_border_index = border_pos[largest_border_index];
         }
@@ -129,40 +96,40 @@ void init_good_suffix(const std::string& str, std::vector<size_t>& arg) {
 }
 
 /**
- * @brief A function that preprocess the bad char table
- *
- * @param str The string being preprocessed
- * @param arg The bad char table
- * @returns void
+ * @brief 预处理坏字符规则表
  */
 void init_bad_char(const std::string& str, std::vector<size_t>& arg) {
-    arg.resize(APLHABET_SIZE, str.length());
+    // 核心修复：大小设为 256，默认值设为字符串长度
+    arg.resize(ALPHABET_SIZE, str.length());
 
     for (size_t i = 0; i < str.length(); i++) {
-        arg[str[i]] = str.length() - i - 1;
+        // 核心修复：转换字符为无符号，防止 signed char 负数下标越界
+        unsigned char ch = static_cast<unsigned char>(str[i]);
+        arg[ch] = str.length() - i - 1;
     }
 }
 
 /**
- * @brief A function that initializes pattern
- *
- * @param str Text used for initialization
- * @param arg Initialized structure
- * @returns void
+ * @brief 外部初始化模式串主入口
  */
 void init_pattern(const std::string& str, pattern& arg) {
     arg.pat = str;
     init_bad_char(str, arg.bad_char);
     init_good_suffix(str, arg.good_suffix);
 }
+
 /**
- * @brief A function that implements Boyer-Moore's algorithm.
- *
- * @param str Text we are seatching in.
- * @param arg pattern structure containing the preprocessed pattern
- * @return Vector of indexes of the occurrences of pattern in text
+ * @brief Boyer-Moore 检索匹配函数
+ * @param str 待匹配的主文本串
+ * @param arg 预处理好的模式串结构体
+ * @return 所有匹配成功的起始索引位置数组
  */
 std::vector<size_t> search(const std::string& str, const pattern& arg) {
+    // 核心修复：增加空字符串及大小边界的安全拦截，防范 underflow
+    if (arg.pat.empty() || str.empty() || arg.pat.size() > str.size()) {
+        return {};
+    }
+
     size_t index_position = arg.pat.size() - 1;
     std::vector<size_t> index_storage;
 
@@ -170,17 +137,22 @@ std::vector<size_t> search(const std::string& str, const pattern& arg) {
         size_t index_string = index_position;
         int index_pattern = static_cast<int>(arg.pat.size()) - 1;
 
+        // 从右往左逐一字符进行匹配
         while (index_pattern >= 0 &&
                str[index_string] == arg.pat[index_pattern]) {
             --index_pattern;
             --index_string;
         }
 
+        // 若 index_pattern < 0，说明全部匹配成功
         if (index_pattern < 0) {
             index_storage.push_back(index_position - arg.pat.length() + 1);
-            index_position += arg.good_suffix[0];
+            index_position += arg.good_suffix[0]; // 利用好后缀规则滑动到下一个可能位置
         } else {
-            index_position += std::max(arg.bad_char[str[index_string]],
+            // 发生坏字符不匹配，取坏字符和好后缀规则中的最大滑动值
+            // 核心修复：对 str[index_string] 转成无符号字符，防止越界崩溃
+            unsigned char bad_ch = static_cast<unsigned char>(str[index_string]);
+            index_position += std::max(arg.bad_char[bad_ch],
                                        arg.good_suffix[index_pattern + 1]);
         }
     }
@@ -189,33 +161,25 @@ std::vector<size_t> search(const std::string& str, const pattern& arg) {
 }
 
 /**
- * @brief Check if pat is prefix of str.
- *
- * @param str pointer to some part of the input text.
- * @param pat the searched pattern.
- * @param len length of the searched pattern
- * @returns `true` if pat IS prefix of str.
- * @returns `false` if pat is NOT a prefix of str.
+ * @brief 辅助前缀判定函数
  */
 bool is_prefix(const char* str, const char* pat, size_t len) {
-    if (strlen(str) < len) {
+    if (std::strlen(str) < len) {
         return false;
     }
-
     for (size_t i = 0; i < len; i++) {
         if (str[i] != pat[i]) {
             return false;
         }
     }
-
     return true;
 }
+
 }  // namespace boyer_moore
 }  // namespace strings
+
 /**
- * @brief A test case in which we search for every appearance of the word 'and'
- * @param text The text in which we search for appearance of the word 'and'
- * @returns void
+ * @brief "and" 检索单元测试
  */
 void and_test(const char* text) {
     strings::boyer_moore::pattern ands;
@@ -228,9 +192,7 @@ void and_test(const char* text) {
 }
 
 /**
- * @brief  A test case in which we search for every appearance of the word 'pat'
- * @param text The text in which we search for appearance of the word 'pat'
- * @returns void
+ * @brief "pat" 检索单元测试
  */
 void pat_test(const char* text) {
     strings::boyer_moore::pattern pat;
@@ -238,14 +200,13 @@ void pat_test(const char* text) {
     std::vector<size_t> indexes = strings::boyer_moore::search(text, pat);
 
     assert(indexes.size() == 6);
-
     for (const auto& currentIndex : indexes) {
         assert(strings::boyer_moore::is_prefix(text + currentIndex, "pat", 3));
     }
 }
+
 /**
- * @brief Self-test implementations
- * @returns void
+ * @brief 单元自测用例
  */
 static void tests() {
     const char* text =
@@ -259,14 +220,19 @@ static void tests() {
     and_test(text);
     pat_test(text);
 
-    std::cout << "All tests have successfully passed!\n";
+    // 验证含有中文（非 ASCII）时的稳定性，确认不会越界崩溃
+    strings::boyer_moore::pattern cn_pat;
+    strings::boyer_moore::init_pattern("测试", cn_pat);
+    std::vector<size_t> cn_res = strings::boyer_moore::search("这是一个测试文本，测试非ASCII字符越界安全性", cn_pat);
+    assert(cn_res.size() == 2);
+
+    std::cout << "All Boyer-Moore tests successfully passed!" << std::endl;
 }
 
 /**
- * @brief Main function
- * @returns 0 on exit
+ * @brief 主函数
  */
 int main() {
-    tests();  // run self-test implementations
+    tests(); // 运行自测
     return 0;
 }
