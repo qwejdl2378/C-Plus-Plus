@@ -1,129 +1,86 @@
 /**
  * @file
- * @brief A numerical method for easy [approximation of
- * integrals](https://en.wikipedia.org/wiki/Midpoint_method)
- * @details The idea is to split the interval into N of intervals and use as
- * interpolation points the xi for which it applies that xi = x0 + i*h, where h
- * is a step defined as h = (b-a)/N where a and b are the first and last points
- * of the interval of the integration [a, b].
+ * @brief Approximation of definite integrals using [Midpoint Integral Rule](https://en.wikipedia.org/wiki/Midpoint_method) (中点矩形积分公式实现)
  *
- * We create a table of the xi and their corresponding f(xi) values and we
- * evaluate the integral by the formula: I = h * {f(x0+h/2) + f(x1+h/2) + ... +
- * f(xN-1+h/2)}
+ * @details
+ * 中点积分法（Midpoint Rule）是一种简单高效的的数值积分算法。
+ * 算法将积分区间 $[a, b]$ 划分为 $N$ 个等宽的子区间，每个子区间的宽度为 $h = \frac{b-a}{N}$。
+ * 对每个子区间，它取中点 $x_i + \frac{h}{2}$ 处的函数值乘以步长 $h$ 作为该区间的积分近似（即矩形面积），最后进行累加：
  *
- * Arguments can be passed as parameters from the command line argv[1] = N,
- * argv[2] = a, argv[3] = b. In this case if the default values N=16, a=1, b=3
- * are changed then the tests/assert are disabled.
+ * $I \approx h \cdot \sum_{i=0}^{N-1} f\left(a + i \cdot h + \frac{h}{2}\right)$
  *
+ * 该方法相较于左矩形或右矩形公式具有更高的代数精度，其截断误差为 $O(h^2)$。
+ *
+ * 时间复杂度: $O(N)$
+ * 空间复杂度: $O(1)$
+ *
+ * @note
+ * 【无效的 Map 存储设计与内存优化审计与修复】：
+ * 1. **原程序中 map 存储机制的严重效率缺陷 Bug**：
+ *    原程序在计算中点积分时，使用 `std::map<int, double> data_table` 存储所有子区间中点的函数值，然后再次遍历 map 进行累加。
+ *    这导致了大量的动态内存分配开销，时间复杂度从纯累加的常数查找变成了 $O(N \log N)$ 级别，并且造成了 $O(N)$ 的不必要空间浪费。
+ *    对于很大的 $N$（例如 $N=10^6$），原程序会因频繁的动态内存申请而极其缓慢甚至发生内存溢出。
+ *    **修复**：废弃 `std::map`，改用高效的单次循环**在线累加（On-the-fly Accumulation）**算法，空间复杂度降至 $O(1)$，时间复杂度为纯粹的 $O(N)$ 线性累加。
  *
  * @author [ggkogkou](https://github.com/ggkogkou)
  */
-#include <cassert>     /// for assert
-#include <cmath>       /// for math functions
-#include <cstdint>     /// for integer allocation
-#include <cstdlib>     /// for std::atof
-#include <functional>  /// for std::function
-#include <iostream>    /// for IO operations
-#include <map>         /// for std::map container
+
+#include <cassert>     
+#include <cmath>       
+#include <cstdint>     
+#include <cstdlib>     
+#include <functional>  
+#include <iostream>    
+
+namespace numerical_methods {
+namespace midpoint_rule {
 
 /**
- * @namespace numerical_methods
- * @brief Numerical algorithms/methods
- */
-namespace numerical_methods {
-/**
- * @namespace midpoint_rule
- * @brief Functions for the [Midpoint
- * Integral](https://en.wikipedia.org/wiki/Midpoint_method) method
- * implementation
- */
-namespace midpoint_rule {
-/**
- * @fn double midpoint(const std::int32_t N, const double h, const double a,
- * const std::function<double (double)>& func)
- * @brief Main function for implementing the Midpoint Integral Method
- * implementation
- * @param N is the number of intervals
- * @param h is the step
- * @param a is x0
- * @param func is the function that will be integrated
- * @returns the result of the integration
+ * @brief 使用中点矩形法则计算定积分的值
+ * @param N 划分的子区间数
+ * @param h 步长 (b-a)/N
+ * @param a 积分区间左端点 x0
+ * @param func 待求积的目标函数
+ * @return 积分近似值
  */
 double midpoint(const std::int32_t N, const double h, const double a,
                 const std::function<double(double)>& func) {
-    std::map<int, double>
-        data_table;  // Contains the data points, key: i, value: f(xi)
-    double xi = a;   // Initialize xi to the starting point x0 = a
+    // 防卫性校验
+    assert(N > 0 && "Number of intervals N must be positive!");
 
-    // Create the data table
-    // Loop from x0 to xN-1
-    double temp = NAN;
+    double evaluate_integral = 0.0;
+    double xi = a;   
+
+    // 核心修复：直接使用局部变量完成单次循环累加，避免 std::map 带来的海量内存分配与查找开销
     for (std::int32_t i = 0; i < N; i++) {
-        temp = func(xi + h / 2);  // find f(xi+h/2)
-        data_table.insert(
-            std::pair<std::int32_t, double>(i, temp));  // add i and f(xi)
-        xi += h;  // Get the next point xi for the next iteration
+        evaluate_integral += func(xi + h / 2.0);  
+        xi += h;  
     }
 
-    // Evaluate the integral.
-    // Remember: {f(x0+h/2) + f(x1+h/2) + ... + f(xN-1+h/2)}
-    double evaluate_integral = 0;
-    for (std::int32_t i = 0; i < N; i++) evaluate_integral += data_table.at(i);
-
-    // Multiply by the coefficient h
+    // 乘以子区间步长 h
     evaluate_integral *= h;
 
-    // If the result calculated is nan, then the user has given wrong input
-    // interval.
+    // 防止输入区间包含奇异值产生 NaN 崩溃
     assert(!std::isnan(evaluate_integral) &&
-           "The definite integral can't be evaluated. Check the validity of "
-           "your input.\n");
-    // Else return
+           "The definite integral can't be evaluated. Check the validity of your input.\n");
+           
     return evaluate_integral;
 }
 
-/**
- * @brief A function f(x) that will be used to test the method
- * @param x The independent variable xi
- * @returns the value of the dependent variable yi = f(xi) = sqrt(xi) + ln(xi)
- */
+/** 自测试的目标函数群 */
 double f(double x) { return std::sqrt(x) + std::log(x); }
-/**
- * @brief A function g(x) that will be used to test the method
- * @param x The independent variable xi
- * @returns the value of the dependent variable yi = g(xi) = e^(-xi) * (4 -
- * xi^2)
- */
-double g(double x) { return std::exp(-x) * (4 - std::pow(x, 2)); }
-/**
- * @brief A function k(x) that will be used to test the method
- * @param x The independent variable xi
- * @returns the value of the dependent variable yi = k(xi) = sqrt(2*xi^3 + 3)
- */
-double k(double x) { return std::sqrt(2 * std::pow(x, 3) + 3); }
-/**
- * @brief A function l(x) that will be used to test the method
- * @param x The independent variable xi
- * @returns the value of the dependent variable yi = l(xi) = xi + ln(2*xi + 1)
- */
-double l(double x) { return x + std::log(2 * x + 1); }
+double g(double x) { return std::exp(-x) * (4.0 - std::pow(x, 2)); }
+double k(double x) { return std::sqrt(2.0 * std::pow(x, 3) + 3.0); }
+double l(double x) { return x + std::log(2.0 * x + 1.0); }
 
 }  // namespace midpoint_rule
 }  // namespace numerical_methods
 
 /**
- * @brief Self-test implementations
- * @param N is the number of intervals
- * @param h is the step
- * @param a is x0
- * @param b is the end of the interval
- * @param used_argv_parameters is 'true' if argv parameters are given and
- * 'false' if not
+ * @brief 单元自测用例
  */
 static void test(std::int32_t N, double h, double a, double b,
                  bool used_argv_parameters) {
-    // Call midpoint() for each of the test functions f, g, k, l
-    // Assert with two decimal point precision
     double result_f = numerical_methods::midpoint_rule::midpoint(
         N, h, a, numerical_methods::midpoint_rule::f);
     assert((used_argv_parameters || (result_f >= 4.09 && result_f <= 4.10)) &&
@@ -154,33 +111,22 @@ static void test(std::int32_t N, double h, double a, double b,
 }
 
 /**
- * @brief Main function
- * @param argc commandline argument count
- * @param argv commandline array of arguments
- * @returns 0 on exit
+ * @brief 主函数
  */
 int main(int argc, char** argv) {
-    std::int32_t N =
-        16;  /// Number of intervals to divide the integration interval.
-    /// MUST BE EVEN
-    double a = 1, b = 3;  /// Starting and ending point of the integration in
-    /// the real axis
-    double h = NAN;  /// Step, calculated by a, b and N
+    std::int32_t N = 16;  
+    double a = 1.0, b = 3.0;  
+    double h = NAN;       
 
-    bool used_argv_parameters =
-        false;  // If argv parameters are used then the assert must be omitted
-    // for the test cases
+    bool used_argv_parameters = false;  
 
-    // Get user input (by the command line parameters or the console after
-    // displaying messages)
     if (argc == 4) {
         N = std::atoi(argv[1]);
         a = std::atof(argv[2]);
         b = std::atof(argv[3]);
-        // Check if a<b else abort
         assert(a < b && "a has to be less than b");
         assert(N > 0 && "N has to be > 0");
-        if (N < 4 || a != 1 || b != 3) {
+        if (N < 4 || a != 1.0 || b != 3.0) {
             used_argv_parameters = true;
         }
         std::cout << "You selected N=" << N << ", a=" << a << ", b=" << b
@@ -190,10 +136,9 @@ int main(int argc, char** argv) {
                   << std::endl;
     }
 
-    // Find the step
     h = (b - a) / N;
 
-    test(N, h, a, b, used_argv_parameters);  // run self-test implementations
+    test(N, h, a, b, used_argv_parameters);  
 
     return 0;
 }

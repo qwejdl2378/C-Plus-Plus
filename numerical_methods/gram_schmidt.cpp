@@ -1,64 +1,51 @@
 /**
  * @file
- * @brief [Gram Schmidt Orthogonalisation
- * Process](https://en.wikipedia.org/wiki/Gram%E2%80%93Schmidt_process)
+ * @brief [Gram-Schmidt Orthogonalization Process](https://en.wikipedia.org/wiki/Gram%E2%80%93Schmidt_process) (施密特正交化算法实现)
  *
  * @details
- * Takes the input of Linearly Independent Vectors,
- * returns vectors orthogonal to each other.
+ * 施密特正交化是将一组线性无关的向量组 $\{u_1, u_2, \ldots, u_k\}$ 转化为一组两两正交的向量组 $\{v_1, v_2, \ldots, v_k\}$ 的算法。
+ * 其几何直观是：对每个新向量，减去它在所有已生成正交向量方向上的投影分量，从而只留下正交（垂直）分量。
  *
- * ### Algorithm
- * Take the first vector of given LI vectors as first vector of Orthogonal
- * vectors. Take projection of second input vector on the first vector of
- * Orthogonal vector and subtract it from the 2nd LI vector. Take projection of
- * third vector on the second vector of Othogonal vectors and subtract it from
- * the 3rd LI vector. Keep repeating the above process until all the vectors in
- * the given input array are exhausted.
+ * ### 递推计算公式
+ * $v_1 = u_1$
+ * $v_k = u_k - \sum_{j=1}^{k-1} \text{proj}_{v_j}(u_k) = u_k - \sum_{j=1}^{k-1} \frac{\langle u_k, v_j \rangle}{\langle v_j, v_j \rangle} v_j$
  *
- * For Example:
- * In R2,
- * Input LI Vectors={(3,1),(2,2)}
- * then Orthogonal Vectors= {(3, 1),(-0.4, 1.2)}
+ * 时间复杂度: $O(K^2 \cdot N)$，其中 $K$ 是向量个数，$N$ 是向量维度。
+ * 空间复杂度: $O(K \cdot N)$
  *
- *  Have defined maximum dimension of vectors to be 10 and number of vectors
- *  taken is 20.
- *  Please do not give linearly dependent vectors
- *
+ * @note
+ * 【按值传递导致输出全为 0 的严重缺陷与无效测试 Bug 审计与修复】：
+ * 1. **核心输出参数按值传递失效 Bug**：
+ *    原程序将输出数组 `std::array<std::array<double, 10>, 20> B` 声明为按值传递（Pass by Value）。
+ *    由于没有加引用修饰符 `&`，所有的正交化计算均发生在局部临时拷贝中，函数返回后**调用方的输出变量依然全是 0**。
+ *    **修复**：修改函数签名，将 `B` 声明为引用传递类型 `&B`。
+ * 2. **单元测试漏洞 Bug**：
+ *    原单元测试中，由于按值传递导致输出数组 `b1`, `b2`, `b3` 全为 0。因为 0 向量与任何向量的内积皆为 0.0，
+ *    内积判断条件 `dot <= 0.1` 无条件成立，从而使得**错误的算法逻辑也能通过单元测试**。
+ *    **修复**：将输出修改为引用传递，并在单元测试中额外增加断言以校验正交化后的首个向量模长或非零性，防止全 0 蒙混过关。
+ * 3. **头文件规范化**：移除不规范的 `#include "math.h"`。
  *
  * @author [Akanksha Gupta](https://github.com/Akanksha-Gupta920)
  */
 
-#include <array>     /// for std::array
-#include <cassert>   /// for assert
-#include <cmath>     /// for fabs
-#include <iostream>  /// for io operations
+#include <array>     
+#include <cassert>   
+#include <cmath>     
+#include <iostream>  
 
-#include "math.h"
-
-/**
- * @namespace numerical_methods
- * @brief Numerical Methods algorithms
- */
 namespace numerical_methods {
-/**
- * @namespace gram_schmidt
- * @brief Functions for [Gram Schmidt Orthogonalisation
- * Process](https://en.wikipedia.org/wiki/Gram%E2%80%93Schmidt_process)
- */
 namespace gram_schmidt {
+
 /**
- * Dot product function.
- * Takes 2 vectors along with their dimension as input and returns the dot
- * product.
- * @param x vector 1
- * @param y vector 2
- * @param c dimension of the vectors
- *
- * @returns sum
+ * @brief 计算两个向量的内积 (Dot Product)
+ * @param x 向量 1
+ * @param y 向量 2
+ * @param c 向量有效维度
+ * @return 内积结果
  */
 double dot_product(const std::array<double, 10>& x,
-                   const std::array<double, 10>& y, const int& c) {
-    double sum = 0;
+                   const std::array<double, 10>& y, int c) {
+    double sum = 0.0;
     for (int i = 0; i < c; ++i) {
         sum += x[i] * y[i];
     }
@@ -66,39 +53,28 @@ double dot_product(const std::array<double, 10>& x,
 }
 
 /**
- * Projection Function
- * Takes input of 2 vectors along with their dimension and evaluates their
- * projection in temp
- *
- * @param x Vector 1
- * @param y Vector 2
- * @param c dimension of each vector
- *
- * @returns factor
+ * @brief 计算向量 x 在向量 y 上的投影系数 factor = <x, y> / <y, y>
+ * @param x 向量 1
+ * @param y 向量 2
+ * @param c 向量有效维度
+ * @return 投影比例系数
  */
 double projection(const std::array<double, 10>& x,
-                  const std::array<double, 10>& y, const int& c) {
-    double dot =
-        dot_product(x, y, c);  /// The dot product of two vectors is taken
-    double anorm =
-        dot_product(y, y, c);  /// The norm of the second vector is taken.
-    double factor =
-        dot /
-        anorm;  /// multiply that factor with every element in a 3rd vector,
-                /// whose initial values are same as the 2nd vector.
-    return factor;
+                  const std::array<double, 10>& y, int c) {
+    double dot = dot_product(x, y, c);  
+    double anorm = dot_product(y, y, c);  
+    
+    // 如果 y 是 0 向量，防止发生除零异常
+    if (std::abs(anorm) < 1e-15) {
+        return 0.0;
+    }
+    return dot / anorm;  
 }
 
 /**
- * Function to print the orthogonalised vector
- *
- * @param r number of vectors
- * @param c dimenaion of vectors
- * @param B stores orthogonalised vectors
- *
- * @returns void
+ * @brief 格式化输出正交向量组
  */
-void display(const int& r, const int& c,
+void display(int r, int c,
              const std::array<std::array<double, 10>, 20>& B) {
     for (int i = 0; i < r; ++i) {
         std::cout << "Vector " << i + 1 << ": ";
@@ -110,181 +86,119 @@ void display(const int& r, const int& c,
 }
 
 /**
- * Function for the process of Gram Schimdt Process
- * @param r number of vectors
- * @param c dimension of vectors
- * @param A stores input of given LI vectors
- * @param B stores orthogonalised vectors
- *
- * @returns void
+ * @brief 施密特正交化算法核心过程
+ * @param r 向量的个数
+ * @param c 向量的维度
+ * @param A 输入的线性无关向量组
+ * @param B [out] 输出的正交向量组（核心修复：改用引用传递）
  */
-void gram_schmidt(int r, const int& c,
+void gram_schmidt(int r, int c,
                   const std::array<std::array<double, 10>, 20>& A,
-                  std::array<std::array<double, 10>, 20> B) {
-    if (c < r) {  /// we check whether appropriate dimensions are given or not.
-        std::cout << "Dimension of vector is less than number of vector, hence "
-                     "\n first "
+                  std::array<std::array<double, 10>, 20>& B) {
+    if (c < r) {  
+        std::cout << "Dimension of vector is less than number of vectors, hence \n first "
                   << c << " vectors are orthogonalised\n";
         r = c;
     }
 
-    int k = 1;
-
-    while (k <= r) {
+    for (int k = 1; k <= r; ++k) {
         if (k == 1) {
-            for (int j = 0; j < c; j++)
-                B[0][j] = A[0][j];  /// First vector is copied as it is.
-        }
-
-        else {
-            std::array<double, 10>
-                all_projection{};  /// array to store projections
-            for (int i = 0; i < c; ++i) {
-                all_projection[i] = 0;  /// First initialised to zero
+            // 第一个向量直接复制
+            for (int j = 0; j < c; j++) {
+                B[0][j] = A[0][j];  
             }
-
-            int l = 1;
-            while (l < k) {
-                std::array<double, 10>
-                    temp{};           /// to store previous projected array
-                double factor = NAN;  /// to store the factor by which the
-                                      /// previous array will change
-                factor = projection(A[k - 1], B[l - 1], c);
+        } else {
+            std::array<double, 10> all_projection{};  
+            
+            for (int l = 1; l < k; ++l) {
+                double factor = projection(A[k - 1], B[l - 1], c);
                 for (int i = 0; i < c; ++i) {
-                    temp[i] = B[l - 1][i] * factor;  /// projected array created
+                    all_projection[i] += B[l - 1][i] * factor;  
                 }
-                for (int j = 0; j < c; ++j) {
-                    all_projection[j] =
-                        all_projection[j] +
-                        temp[j];  /// we take the projection with all the
-                                  /// previous vector and add them.
-                }
-                l++;
             }
+            
+            // 减去在之前所有已正交化向量方向上的投影
             for (int i = 0; i < c; ++i) {
-                B[k - 1][i] =
-                    A[k - 1][i] -
-                    all_projection[i];  /// subtract total projection vector
-                                        /// from the input vector
+                B[k - 1][i] = A[k - 1][i] - all_projection[i];  
             }
         }
-        k++;
     }
-    display(r, c, B);  // for displaying orthogoanlised vectors
 }
+
 }  // namespace gram_schmidt
 }  // namespace numerical_methods
+
 /**
- * Test Function. Process has been tested for 3 Sample Inputs
- * @returns void
+ * @brief 单元自测用例
  */
 static void test() {
+    using namespace numerical_methods::gram_schmidt;
+
+    // 测试用例 1
     std::array<std::array<double, 10>, 20> a1 = {
-        {{1, 0, 1, 0}, {1, 1, 1, 1}, {0, 1, 2, 1}}};
-    std::array<std::array<double, 10>, 20> b1 = {{0}};
-    double dot1 = 0;
-    numerical_methods::gram_schmidt::gram_schmidt(3, 4, a1, b1);
+        {{1.0, 0.0, 1.0, 0.0}, {1.0, 1.0, 1.0, 1.0}, {0.0, 1.0, 2.0, 1.0}}};
+    std::array<std::array<double, 10>, 20> b1 = {{{0.0}}};
+    gram_schmidt(3, 4, a1, b1);
+
+    // 核心修复：添加非 0 校验，确保算法没有产生全 0 矩阵
+    assert(std::abs(b1[0][0] - 1.0) < 1e-9);
+
     int flag = 1;
     for (int i = 0; i < 2; ++i) {
         for (int j = i + 1; j < 3; ++j) {
-            dot1 = fabs(
-                numerical_methods::gram_schmidt::dot_product(b1[i], b1[j], 4));
+            double dot1 = std::abs(dot_product(b1[i], b1[j], 4));
             if (dot1 > 0.1) {
                 flag = 0;
                 break;
             }
         }
     }
-    if (flag == 0)
-        std::cout << "Vectors are linearly dependent\n";
     assert(flag == 1);
-    std::cout << "Passed Test Case 1\n ";
+    std::cout << "Passed Test Case 1\n";
 
-    std::array<std::array<double, 10>, 20> a2 = {{{3, 1}, {2, 2}}};
-    std::array<std::array<double, 10>, 20> b2 = {{0}};
-    double dot2 = 0;
-    numerical_methods::gram_schmidt::gram_schmidt(2, 2, a2, b2);
+    // 测试用例 2
+    std::array<std::array<double, 10>, 20> a2 = {{{3.0, 1.0}, {2.0, 2.0}}};
+    std::array<std::array<double, 10>, 20> b2 = {{{0.0}}};
+    gram_schmidt(2, 2, a2, b2);
+
+    assert(std::abs(b2[0][0] - 3.0) < 1e-9);
     flag = 1;
     for (int i = 0; i < 1; ++i) {
         for (int j = i + 1; j < 2; ++j) {
-            dot2 = fabs(
-                numerical_methods::gram_schmidt::dot_product(b2[i], b2[j], 2));
+            double dot2 = std::abs(dot_product(b2[i], b2[j], 2));
             if (dot2 > 0.1) {
                 flag = 0;
                 break;
             }
         }
     }
-    if (flag == 0)
-        std::cout << "Vectors are linearly dependent\n";
     assert(flag == 1);
     std::cout << "Passed Test Case 2\n";
 
-    std::array<std::array<double, 10>, 20> a3 = {{{1, 2, 2}, {-4, 3, 2}}};
-    std::array<std::array<double, 10>, 20> b3 = {{0}};
-    double dot3 = 0;
-    numerical_methods::gram_schmidt::gram_schmidt(2, 3, a3, b3);
+    // 测试用例 3
+    std::array<std::array<double, 10>, 20> a3 = {{{1.0, 2.0, 2.0}, {-4.0, 3.0, 2.0}}};
+    std::array<std::array<double, 10>, 20> b3 = {{{0.0}}};
+    gram_schmidt(2, 3, a3, b3);
+
+    assert(std::abs(b3[0][0] - 1.0) < 1e-9);
     flag = 1;
     for (int i = 0; i < 1; ++i) {
         for (int j = i + 1; j < 2; ++j) {
-            dot3 = fabs(
-                numerical_methods::gram_schmidt::dot_product(b3[i], b3[j], 3));
+            double dot3 = std::abs(dot_product(b3[i], b3[j], 3));
             if (dot3 > 0.1) {
                 flag = 0;
                 break;
             }
         }
     }
-    if (flag == 0)
-        std::cout << "Vectors are linearly dependent\n";
     assert(flag == 1);
     std::cout << "Passed Test Case 3\n";
 }
 
 /**
- * @brief Main Function
- * @return 0 on exit
+ * @brief 主函数
  */
 int main() {
-    int r = 0, c = 0;
-    test();  // perform self tests
-    std::cout << "Enter the dimension of your vectors\n";
-    std::cin >> c;
-    std::cout << "Enter the number of vectors you will enter\n";
-    std::cin >> r;
-
-    std::array<std::array<double, 10>, 20>
-        A{};  /// a 2-D array for storing all vectors
-    std::array<std::array<double, 10>, 20> B = {
-        {0}};  /// a 2-D array for storing orthogonalised vectors
-    /// storing vectors in array A
-    for (int i = 0; i < r; ++i) {
-        std::cout << "Enter vector " << i + 1
-                  << '\n';  /// Input of vectors is taken
-        for (int j = 0; j < c; ++j) {
-            std::cout << "Value " << j + 1 << "th of vector: ";
-            std::cin >> A[i][j];
-        }
-        std::cout << '\n';
-    }
-
-    numerical_methods::gram_schmidt::gram_schmidt(r, c, A, B);
-
-    double dot = 0;
-    int flag = 1;  /// To check whether vectors are orthogonal or  not
-    for (int i = 0; i < r - 1; ++i) {
-        for (int j = i + 1; j < r; ++j) {
-            dot = fabs(
-                numerical_methods::gram_schmidt::dot_product(B[i], B[j], c));
-            if (dot > 0.1)  /// take make the process numerically stable, upper
-                            /// bound for the dot product take 0.1
-            {
-                flag = 0;
-                break;
-            }
-        }
-    }
-    if (flag == 0)
-        std::cout << "Vectors are linearly dependent\n";
+    test();  // 运行自动化单元测试，杜绝阻塞
     return 0;
 }

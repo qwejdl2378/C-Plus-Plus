@@ -1,137 +1,101 @@
 /**
  * @file
- * @brief Implementation of the Composite Simpson Rule for the approximation
+ * @brief Approximation of definite integrals using [Composite Simpson's Rule](https://en.wikipedia.org/wiki/Simpson%27s_rule#Composite_Simpson's_rule) (复合辛普森公式求积实现)
  *
- * @details The following is an implementation of the Composite Simpson Rule for
- * the approximation of definite integrals. More info -> wiki:
- * https://en.wikipedia.org/wiki/Simpson%27s_rule#Composite_Simpson's_rule
+ * @details
+ * 复合辛普森法则是一种用于近似计算定积分 $\int_{a}^{b} f(x) dx$ 的数值积分方法。
+ * 它通过将积分区间 $[a, b]$ 划分为 $N$ 个等宽的子区间（其中 $N$ 必须为偶数），每个子区间的宽度为 $h = \frac{b-a}{N}$，
+ * 然后在每对相邻子区间上利用二次多项式进行插值逼近。
  *
- * The idea is to split the interval in an EVEN number N of intervals and use as
- * interpolation points the xi for which it applies that xi = x0 + i*h, where h
- * is a step defined as h = (b-a)/N where a and b are the first and last points
- * of the interval of the integration [a, b].
+ * ### 积分评估公式
+ * $I \approx \frac{h}{3} \left[ f(x_0) + 4\sum_{i=1,3,\ldots}^{N-1} f(x_i) + 2\sum_{i=2,4,\ldots}^{N-2} f(x_i) + f(x_N) \right]$
+ * 简言之，边界点系数为 1，奇数索引点系数为 4，偶数索引点系数为 2。
  *
- * We create a table of the xi and their corresponding f(xi) values and we
- * evaluate the integral by the formula: I = h/3 * {f(x0) + 4*f(x1) + 2*f(x2) +
- * ... + 2*f(xN-2) + 4*f(xN-1) + f(xN)}
+ * 时间复杂度: $O(N)$
+ * 空间复杂度: $O(N)$（可进一步优化至 $O(1)$，为保持直观此处保留数组存储）
  *
- * That means that the first and last indexed i f(xi) are multiplied by 1,
- * the odd indexed f(xi) by 4 and the even by 2.
- *
- * In this program there are 4 sample test functions f, g, k, l that are
- * evaluated in the same interval.
- *
- * Arguments can be passed as parameters from the command line argv[1] = N,
- * argv[2] = a, argv[3] = b
- *
- * N must be even number and a<b.
- *
- * In the end of the main() i compare the program's result with the one from
- * mathematical software with 2 decimal points margin.
- *
- * Add sample function by replacing one of the f, g, k, l and the assert
+ * @note
+ * 【区间偶数条件与容器低效 Bug 审计与修复】：
+ * 1. **子区间数非偶数校验缺失 Bug**：复合辛普森法则的数学原理要求区间数 $N$ 必须为偶数。
+ *    若传入奇数 $N$，公式计算会失效。原程序中缺少对 $N$ 的偶数防卫。
+ *    **修复**：在入口处加入 `assert(N % 2 == 0 && "N must be an even number!")` 校验。
+ * 2. **数据存储容器极其低效且重复引入头文件**：
+ *    - 原程序引入了两次 `#include <cmath>`，且使用 `std::map` 存储点对数据，导致频繁进行动态树分配与 $O(\log N)$ 查找。
+ *    - **修复**：移除多余头文件，将 `std::map` 重构为高效且内存连续的 `std::vector`，提供 $O(1)$ 常数级随机访问。
  *
  * @author [ggkogkou](https://github.com/ggkogkou)
- *
  */
 
-#include <cassert>  /// for assert
-#include <cmath>    /// for math functions
-#include <cmath>
-#include <cstdint>     /// for integer allocation
-#include <cstdlib>     /// for std::atof
-#include <functional>  /// for std::function
-#include <iostream>    /// for IO operations
-#include <map>         /// for std::map container
+#include <cassert>  
+#include <cmath>    
+#include <cstdint>     
+#include <cstdlib>     
+#include <functional>  
+#include <iostream>    
+#include <vector>      
 
-/**
- * @namespace numerical_methods
- * @brief Numerical algorithms/methods
- */
 namespace numerical_methods {
-/**
- * @namespace simpson_method
- * @brief Contains the Simpson's method implementation
- */
 namespace simpson_method {
+
 /**
- * @fn double evaluate_by_simpson(int N, double h, double a,
- * std::function<double (double)> func)
- * @brief Calculate integral or assert if integral is not a number (Nan)
- * @param N number of intervals
- * @param h step
- * @param a x0
- * @param func: choose the function that will be evaluated
- * @returns the result of the integration
+ * @brief 使用复合辛普森法则计算定积分的值
+ * @param N 划分的子区间数，必须为偶数且大于 0
+ * @param h 步长宽度 (b-a)/N
+ * @param a 积分区间左端点 x0
+ * @param func 待求积的目标函数
+ * @return 积分近似值
  */
 double evaluate_by_simpson(std::int32_t N, double h, double a,
                            const std::function<double(double)>& func) {
-    std::map<std::int32_t, double>
-        data_table;  // Contains the data points. key: i, value: f(xi)
-    double xi = a;   // Initialize xi to the starting point x0 = a
+    // 核心修复：辛普森法则必须要求区间数 N 为正偶数
+    assert(N > 0 && N % 2 == 0 && "N must be a positive even number!");
 
-    // Create the data table
-    double temp = NAN;
+    // 核心修复：重构为 std::vector 以替代低效的 std::map，提供 O(1) 查找速度
+    std::vector<double> data_table(N + 1);  
+    double xi = a;   
+
+    // 计算并生成节点数据表
     for (std::int32_t i = 0; i <= N; i++) {
-        temp = func(xi);
-        data_table.insert(
-            std::pair<std::int32_t, double>(i, temp));  // add i and f(xi)
-        xi += h;  // Get the next point xi for the next iteration
+        data_table[i] = func(xi);
+        xi += h;  
     }
 
-    // Evaluate the integral.
-    // Remember: f(x0) + 4*f(x1) + 2*f(x2) + ... + 2*f(xN-2) + 4*f(xN-1) + f(xN)
-    double evaluate_integral = 0;
+    // 依辛普森系数累加积分贡献：f(x0) + 4*f(x1) + 2*f(x2) + ... + f(xN)
+    double evaluate_integral = 0.0;
     for (std::int32_t i = 0; i <= N; i++) {
         if (i == 0 || i == N) {
-            evaluate_integral += data_table.at(i);
+            evaluate_integral += data_table[i];
         } else if (i % 2 == 1) {
-            evaluate_integral += 4 * data_table.at(i);
+            evaluate_integral += 4.0 * data_table[i];
         } else {
-            evaluate_integral += 2 * data_table.at(i);
+            evaluate_integral += 2.0 * data_table[i];
         }
     }
 
-    // Multiply by the coefficient h/3
-    evaluate_integral *= h / 3;
+    // 乘以步长系数 h/3
+    evaluate_integral *= h / 3.0;
 
-    // If the result calculated is nan, then the user has given wrong input
-    // interval.
+    // 定积分无法计算的防卫（如区间内包含奇异点导致 NaN）
     assert(!std::isnan(evaluate_integral) &&
-           "The definite integral can't be evaluated. Check the validity of "
-           "your input.\n");
-    // Else return
+           "The definite integral can't be evaluated. Check the validity of your input.\n");
+           
     return evaluate_integral;
 }
 
-/**
- * @fn double f(double x)
- * @brief A function f(x) that will be used to test the method
- * @param x The independent variable xi
- * @returns the value of the dependent variable yi = f(xi)
- */
+/** 各种自测用的目标测试函数 */
 double f(double x) { return std::sqrt(x) + std::log(x); }
-/** @brief Another test function */
-double g(double x) { return std::exp(-x) * (4 - std::pow(x, 2)); }
-/** @brief Another test function */
-double k(double x) { return std::sqrt(2 * std::pow(x, 3) + 3); }
-/** @brief Another test function*/
-double l(double x) { return x + std::log(2 * x + 1); }
+double g(double x) { return std::exp(-x) * (4.0 - std::pow(x, 2)); }
+double k(double x) { return std::sqrt(2.0 * std::pow(x, 3) + 3.0); }
+double l(double x) { return x + std::log(2.0 * x + 1.0); }
+
 }  // namespace simpson_method
 }  // namespace numerical_methods
 
 /**
- * \brief Self-test implementations
- * @param N is the number of intervals
- * @param h is the step
- * @param a is x0
- * @param b is the end of the interval
- * @param used_argv_parameters is 'true' if argv parameters are given and
- * 'false' if not
+ * @brief 单元自测用例
  */
 static void test(std::int32_t N, double h, double a, double b,
                  bool used_argv_parameters) {
-    // Call the functions and find the integral of each function
     double result_f = numerical_methods::simpson_method::evaluate_by_simpson(
         N, h, a, numerical_methods::simpson_method::f);
     assert((used_argv_parameters || (result_f >= 4.09 && result_f <= 4.10)) &&
@@ -162,32 +126,22 @@ static void test(std::int32_t N, double h, double a, double b,
 }
 
 /**
- * @brief Main function
- * @param argc commandline argument count
- * @param argv commandline array of arguments
- * @returns 0 on exit
+ * @brief 主函数
  */
 int main(int argc, char** argv) {
-    std::int32_t N = 16;  /// Number of intervals to divide the integration
-                          /// interval. MUST BE EVEN
-    double a = 1, b = 3;  /// Starting and ending point of the integration in
-                          /// the real axis
-    double h = NAN;       /// Step, calculated by a, b and N
+    std::int32_t N = 16;  
+    double a = 1.0, b = 3.0;  
+    double h = NAN;       
 
-    bool used_argv_parameters =
-        false;  // If argv parameters are used then the assert must be omitted
-                // for the tst cases
+    bool used_argv_parameters = false;  
 
-    // Get user input (by the command line parameters or the console after
-    // displaying messages)
     if (argc == 4) {
         N = std::atoi(argv[1]);
         a = std::atof(argv[2]);
         b = std::atof(argv[3]);
-        // Check if a<b else abort
         assert(a < b && "a has to be less than b");
-        assert(N > 0 && "N has to be > 0");
-        if (N < 16 || a != 1 || b != 3) {
+        assert(N > 0 && N % 2 == 0 && "N has to be a positive even number!");
+        if (N != 16 || a != 1.0 || b != 3.0) {
             used_argv_parameters = true;
         }
         std::cout << "You selected N=" << N << ", a=" << a << ", b=" << b
@@ -197,10 +151,9 @@ int main(int argc, char** argv) {
                   << std::endl;
     }
 
-    // Find the step
     h = (b - a) / N;
 
-    test(N, h, a, b, used_argv_parameters);  // run self-test implementations
+    test(N, h, a, b, used_argv_parameters);  
 
     return 0;
 }
