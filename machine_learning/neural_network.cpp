@@ -1,30 +1,32 @@
 /**
  * @file
  * @author [Deep Raval](https://github.com/imdeep2905)
- *
- * @brief Implementation of [Multilayer Perceptron]
- * (https://en.wikipedia.org/wiki/Multilayer_perceptron).
+ * @brief Implementation of a [Multilayer Perceptron (MLP)](https://en.wikipedia.org/wiki/Multilayer_perceptron) (多层感知机神经网络实现)
  *
  * @details
- * A multilayer perceptron (MLP) is a class of feedforward artificial neural
- * network (ANN). The term MLP is used ambiguously, sometimes loosely to any
- * feedforward ANN, sometimes strictly to refer to networks composed of multiple
- * layers of perceptrons (with threshold activation). Multilayer perceptrons are
- * sometimes colloquially referred to as "vanilla" neural networks, especially
- * when they have a single hidden layer.
+ * 多层感知机（MLP）是一种前馈人工神经网络（ANN）。它克服了单层感知机无法解决非线性可分问题（如异或 XOR）的缺陷。
+ * 一个 MLP 至少包含三层：输入层、隐藏层和输出层。除了输入节点外，每个节点都是一个使用非线性激活函数的神经元。
  *
- * An MLP consists of at least three layers of nodes: an input layer, a hidden
- * layer and an output layer. Except for the input nodes, each node is a neuron
- * that uses a nonlinear activation function. MLP utilizes a supervised learning
- * technique called backpropagation for training. Its multiple layers and
- * non-linear activation distinguish MLP from a linear perceptron. It can
- * distinguish data that is not linearly separable.
+ * ### 核心要素
+ * 1. **前向传播**：特征输入通过各层权重的加权求和，经过激活函数逐层向下传递，计算出最终的输出。
+ * 2. **反向传播误差（Backpropagation）**：使用梯度下降更新网络权重。基于链式法则，自输出层向输入层反向传播，计算损失函数对每个权重的偏导数。
+ * 3. **优化器与损失**：本实现采用小批量梯度下降（Mini-batch Gradient Descent）进行优化，损失函数为均方误差（MSE）。
  *
- * See [Backpropagation](https://en.wikipedia.org/wiki/Backpropagation) for
- * training algorithm.
+ * 时间复杂度: 每次前向与反向传播 $O(B \cdot \sum L_i \cdot L_{i+1})$，其中 $B$ 是 Batch 大小，$L_i$ 是第 $i$ 层的神经元个数。
+ * 空间复杂度: $O(\sum L_i \cdot L_{i+1})$（存储权重矩阵）。
  *
- * \note This implementation uses mini-batch gradient descent as optimizer and
- * MSE as loss function. Bias is also not included.
+ * @note
+ * 【反向传播梯度计算与测试路径解析 Bug 审计与修复】：
+ * 1. **Sigmoid 导数函数指代错误导致梯度计算不收敛 Bug**：在 `DenseLayer` 两个构造函数中，
+ *    原程序对于 "sigmoid" 激活函数的导数分配存在错误：
+ *    `dactivation_function = neural_network::activations::sigmoid;`
+ *    这导致计算 Sigmoid 激活函数的导数时误用其自身，破坏了误差反向传播中的链式法则梯度流。
+ *    **修复**：修改为其对应的导数实现函数 `dsigmoid`。
+ *    `dactivation_function = neural_network::activations::dsigmoid;`
+ * 2. **单元测试 iris.csv 数据集路径硬编码 Bug**：在 `test()` 单元测试中，
+ *    硬编码了从当前目录直接读取 "iris.csv" 文件。当从项目根路径（非 `machine_learning/` 目录）执行测试时，
+ *    会导致 `Unable to open file` 错误直接终止程序。
+ *    **修复**：添加运行时文件存在性动态嗅探机制，当工作目录位于项目根时自动切换为 `machine_learning/iris.csv` 路径。
  */
 
 #include <algorithm>
@@ -144,7 +146,7 @@ class DenseLayer {
         // Choosing activation (and it's derivative)
         if (activation == "sigmoid") {
             activation_function = neural_network::activations::sigmoid;
-            dactivation_function = neural_network::activations::sigmoid;
+            dactivation_function = neural_network::activations::dsigmoid;
         } else if (activation == "relu") {
             activation_function = neural_network::activations::relu;
             dactivation_function = neural_network::activations::drelu;
@@ -185,7 +187,7 @@ class DenseLayer {
         // Choosing activation (and it's derivative)
         if (activation == "sigmoid") {
             activation_function = neural_network::activations::sigmoid;
-            dactivation_function = neural_network::activations::sigmoid;
+            dactivation_function = neural_network::activations::dsigmoid;
         } else if (activation == "relu") {
             activation_function = neural_network::activations::relu;
             dactivation_function = neural_network::activations::drelu;
@@ -799,24 +801,33 @@ class NeuralNetwork {
 }  // namespace machine_learning
 
 /**
- * Function to test neural network
- * @returns none
+ * @brief 单元自测用例
  */
 static void test() {
-    // Creating network with 3 layers for "iris.csv"
+    // 创建一个包含3层的神经网络，用于分类鸢尾花 iris.csv 数据集
     machine_learning::neural_network::NeuralNetwork myNN =
         machine_learning::neural_network::NeuralNetwork({
-            {4, "none"},  // First layer with 3 neurons and "none" as activation
-            {6,
-             "relu"},  // Second layer with 6 neurons and "relu" as activation
-            {3, "sigmoid"}  // Third layer with 3 neurons and "sigmoid" as
-                            // activation
+            {4, "none"},    // 第一层：输入层，特征维度为4，无激活函数
+            {6, "relu"},    // 第二层：隐藏层，包含6个神经元，Relu 激活
+            {3, "sigmoid"}  // 第三层：输出层，包含3个神经元，Sigmoid 激活
         });
-    // Printing summary of model
+
+    // 打印模型结构摘要
     myNN.summary();
-    // Training Model
-    myNN.fit_from_csv("iris.csv", true, 100, 0.3, false, 2, 32, true);
-    // Testing predictions of model
+
+    // 核心修复：根据当前执行路径动态搜寻读取 iris.csv 文件
+    std::string csv_path = "iris.csv";
+    std::ifstream check_file(csv_path);
+    if (!check_file.is_open()) {
+        csv_path = "machine_learning/iris.csv";
+    } else {
+        check_file.close();
+    }
+
+    // 训练神经网络模型
+    myNN.fit_from_csv(csv_path, true, 100, 0.3, false, 2, 32, true);
+
+    // 验证模型在鸢尾花三类典型样本特征下的分类预测正确性
     assert(machine_learning::argmax(
                myNN.single_predict({{5, 3.4, 1.6, 0.4}})) == 0);
     assert(machine_learning::argmax(
@@ -827,11 +838,9 @@ static void test() {
 }
 
 /**
- * @brief Main function
- * @returns 0 on exit
+ * @brief 主函数
  */
 int main() {
-    // Testing
-    test();
+    test();  // 运行测试
     return 0;
 }
