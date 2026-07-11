@@ -1,38 +1,52 @@
 /**
  * @file
- * @brief contains the definition of the function ::longest_common_string_length
+ * @brief Implementation of Longest Common Subsequence algorithm (最长公共子序列长度算法实现)
  * @details
- * the function ::longest_common_string_length computes the length
- * of the longest common string which can be created of two input strings
- * by removing characters from them
+ * 虽然文件名和部分注释为 longest_common_string，但其求解规则是“通过删除字符后所能达到的最长公共串”，
+ * 这在算法定义中属于**最长公共子序列（LCS, Longest Common Subsequence）**，而非连续的公共子串。
+ * 
+ * ### 动态规划状态转移（自右向左，逆向递推）
+ * 设 `sub_sols[i][j]` 表示 `string_a[i...]` 和 `string_b[j...]` 的 LCS 长度：
+ * - 如果 `string_a[i] == string_b[j]`，则 `sub_sols[i][j] = 1 + sub_sols[i+1][j+1]`；
+ * - 否则，`sub_sols[i][j] = max(sub_sols[i+1][j], sub_sols[i][j+1])`。
+ * 
+ * @note
+ * 【循环边界与溢出设计技巧】：
+ * 1. 数组索引采用了无符号的 `std::size_t` 类型，使用 `--pos_a` 递减进行自右向左的反向遍历。
+ * 2. 终止条件使用了 `pos_a != limit`（其中 `limit = -1`，即无符号最大值）。
+ *    由于无符号溢出特性，当 `pos_a = 0` 执行 `--pos_a` 后，会回绕变为最大值 `limit`，从而恰好满足终止条件退出循环，这是无符号整型反向遍历的经典编写技巧。
+ *
+ * 时间复杂度: O(|str_a| * |str_b|)
+ * 空间复杂度: O(|str_a| * |str_b|)
  *
  * @author [Nikhil Arora](https://github.com/nikhilarora068)
  * @author [Piotr Idzik](https://github.com/vil02)
  */
 
-#include <cassert>   /// for assert
-#include <iostream>  /// for std::cout
-#include <string>    /// for std::string
-#include <utility>   /// for std::move
-#include <vector>    /// for std::vector
+#include <cassert>   /// 用于 assert 断言
+#include <iostream>  /// 用于标准输出
+#include <string>    /// 用于 std::string
+#include <utility>   /// 用于 std::move
+#include <vector>    /// 用于 std::vector
 
 /**
- * @brief computes the length of the longest common string created from input
- * strings
- * @details has O(str_a.size()*str_b.size()) time and memory complexity
- * @param string_a first input string
- * @param string_b second input string
- * @returns the length of the longest common string which can be strated from
- * str_a and str_b
+ * @brief 计算两个字符串的最长公共子序列（LCS）的长度
+ * @param string_a 输入字符串一
+ * @param string_b 输入字符串二
+ * @returns LCS 的长度
  */
 std::size_t longest_common_string_length(const std::string& string_a,
                                          const std::string& string_b) {
     const auto size_a = string_a.size();
     const auto size_b = string_b.size();
+    
+    // 初始化 DP 状态表，默认填充 0
     std::vector<std::vector<std::size_t>> sub_sols(
         size_a + 1, std::vector<std::size_t>(size_b + 1, 0));
 
-    const auto limit = static_cast<std::size_t>(-1);
+    const auto limit = static_cast<std::size_t>(-1); // 用于无符号数自减回绕的终止标志
+    
+    // 逆向双层循环填充 dp 表
     for (std::size_t pos_a = size_a - 1; pos_a != limit; --pos_a) {
         for (std::size_t pos_b = size_b - 1; pos_b != limit; --pos_b) {
             if (string_a[pos_a] == string_b[pos_b]) {
@@ -44,12 +58,11 @@ std::size_t longest_common_string_length(const std::string& string_a,
         }
     }
 
-    return sub_sols[0][0];
+    return sub_sols[0][0]; // 最终的 LCS 长度记录在 sub_sols[0][0] 中
 }
 
 /**
- * @brief represents single example inputs and expected output of the function
- * ::longest_common_string_length
+ * @brief 存储单组测试数据的结构体
  */
 struct TestCase {
     const std::string string_a;
@@ -64,7 +77,7 @@ struct TestCase {
 };
 
 /**
- * @return example data used in the tests of ::longest_common_string_length
+ * @brief 获取硬编码的测试用例列表
  */
 std::vector<TestCase> get_test_cases() {
     return {TestCase("", "", 0),
@@ -83,9 +96,7 @@ std::vector<TestCase> get_test_cases() {
 }
 
 /**
- * @brief checks the function ::longest_common_string_length agains example data
- * @param test_cases list of test cases
- * @tparam type representing a list of test cases
+ * @brief 测试基础逻辑的正确性
  */
 template <typename TestCases>
 static void test_longest_common_string_length(const TestCases& test_cases) {
@@ -96,10 +107,7 @@ static void test_longest_common_string_length(const TestCases& test_cases) {
 }
 
 /**
- * @brief checks if the function ::longest_common_string_length returns the same
- * result when its argument are flipped
- * @param test_cases list of test cases
- * @tparam type representing a list of test cases
+ * @brief 测试对称性（A 和 B 交换参数后结果仍一致）
  */
 template <typename TestCases>
 static void test_longest_common_string_length_is_symmetric(
@@ -111,33 +119,27 @@ static void test_longest_common_string_length_is_symmetric(
 }
 
 /**
- * @brief reverses a given string
- * @param in_str input string
- * @return the string in which the characters appear in the reversed order as in
- * in_str
+ * @brief 辅助反转字符串函数
  */
 std::string reverse_str(const std::string& in_str) {
     return {in_str.rbegin(), in_str.rend()};
 }
 
 /**
- * @brief checks if the function ::longest_common_string_length returns the same
- * result when its inputs are reversed
- * @param test_cases list of test cases
- * @tparam type representing a list of test cases
+ * @brief 测试反转后字符串的 LCS 仍应当与原串 LCS 长度相等
  */
 template <typename TestCases>
 static void test_longest_common_string_length_for_reversed_inputs(
     const TestCases& test_cases) {
     for (const auto& cur_tc : test_cases) {
         assert(longest_common_string_length(reverse_str(cur_tc.string_a),
-                                            reverse_str(cur_tc.string_b)) ==
+                                             reverse_str(cur_tc.string_b)) ==
                cur_tc.common_string_len);
     }
 }
 
 /**
- * @brief runs all tests for ::longest_common_string_length funcion
+ * @brief 运行全套测试用例集
  */
 static void tests() {
     const auto test_cases = get_test_cases();
@@ -150,10 +152,9 @@ static void tests() {
 }
 
 /**
- * @brief Main function
- * @returns 0 on exit
+ * @brief 主函数
  */
 int main() {
-    tests();
+    tests(); // 运行自测
     return 0;
 }

@@ -1,18 +1,25 @@
 /**
  * @file
- * @brief Implementation of cutting a rod problem
+ * @brief Bottom-up Implementation of the [Rod Cutting Problem](https://en.wikipedia.org/wiki/Dynamic_programming#Rod_cutting) (钢条切割问题算法实现)
  *
  * @details
- * Given a rod of length n inches and an array of prices that
- * contains prices of all pieces of size<=n. Determine
- * the maximum profit obtainable by cutting up the rod and selling
- * the pieces.
+ * 给定一根长度为 n 的钢条和一个价格表，价格表包含了所有长度小于等于 n 的钢条的价格。
+ * 求切割并销售该钢条所能获得的最大利润。
  *
- * ### Algorithm
- * The idea is to break the given rod into every smaller piece as possible
- * and then check profit for each piece, by calculating maximum profit for
- * smaller pieces we will build the solution for larger pieces in bottom-up
- * manner.
+ * ### 动态规划递推原理（自底向上）
+ * 设 `profit[i]` 表示长度为 `i` 的钢条所能获得的最大收益：
+ * - 基础状态：`profit[0] = 0`（长度为 0 时收益为 0）
+ * - 递推关系：`profit[i] = max(price[j - 1] + profit[i - j])`，其中 1 <= j <= i
+ *   这表示第一刀切在长度 j 处（获得收益 `price[j-1]`），剩下 `i-j` 长度的最优收益为 `profit[i-j]`。
+ * 
+ * @note
+ * 【类型截断风险提示】：
+ * 在第 61 行中，函数虽然声明返回 `int`，但是内部将结果赋值给了 `const int16_t ans = profit[n];`。
+ * `int16_t` 的取值范围仅为 -32768 到 32767。如果钢条长度较大或售价高，最大利润超过 32767 时，
+ * 会发生数值截断溢出错误。在工业级开发中应统一使用 `int` 或 `int32_t` / `int64_t`。
+ *
+ * 时间复杂度: O(N^2)
+ * 空间复杂度: O(N)
  *
  * @author [Anmol](https://github.com/Anmol3299)
  * @author [Pardeep](https://github.com/Pardeep009)
@@ -23,34 +30,32 @@
 #include <climits>
 #include <cstdint>
 #include <iostream>
+
 /**
  * @namespace dynamic_programming
- * @brief Dynamic Programming algorithms
+ * @brief 动态规划算法命名空间
  */
 namespace dynamic_programming {
 /**
  * @namespace cut_rod
- * @brief Implementation of cutting a rod problem
+ * @brief 钢条切割问题相关命名空间
  */
 namespace cut_rod {
 /**
- * @brief Cuts the rod in different pieces and
- * stores the maximum profit for each piece of the rod.
- * @tparam T size of the price array
- * @param n size of the rod in inches
- * @param price an array of prices that contains prices of all pieces of size<=n
- * @return maximum profit obtainable for @param n inch rod.
+ * @brief 计算钢条切割的最大收益
+ * @tparam T 价格表数组的大小
+ * @param price 价格表数组价格（1-indexed）
+ * @param n 钢条总长度
+ * @returns 最大收益数值
  */
 template <size_t T>
 int maxProfitByCuttingRod(const std::array<int, T> &price, const uint64_t &n) {
-    int *profit =
-        new int[n + 1];  // profit[i] will hold maximum profit for i inch rod
+    int *profit = new int[n + 1];  // profit[i] 保存长度为 i 时的最大利润
 
-    profit[0] = 0;  // if length of rod is zero, then no profit
+    profit[0] = 0;  // 长度为 0 的钢条收益为 0
 
-    // outer loop will select size of rod, starting from 1 inch to n inch rod.
-    // inner loop will evaluate the maximum profit we can get for i inch rod by
-    // making every possible cut on it and will store it in profit[i].
+    // 外层循环：逐步计算长度从 1 到 n 的子问题的最大利润
+    // 内层循环：枚举第一刀切下的长度 j，利用子问题 profit[i-j] 递推当前最大值
     for (size_t i = 1; i <= n; i++) {
         int q = INT_MIN;
         for (size_t j = 1; j <= i; j++) {
@@ -58,21 +63,20 @@ int maxProfitByCuttingRod(const std::array<int, T> &price, const uint64_t &n) {
         }
         profit[i] = q;
     }
-    const int16_t ans = profit[n];
+    const int16_t ans = profit[n]; // 警告：这里使用 int16_t 容易导致溢出
     delete[] profit;
-    return ans;  // returning maximum profit
+    return ans;
 }
 }  // namespace cut_rod
 }  // namespace dynamic_programming
 
 /**
- * @brief Function to test above algorithm
- * @returns void
+ * @brief 单元自测用例
  */
 static void test() {
-    // Test 1
-    const int16_t n1 = 8;                                         // size of rod
-    std::array<int32_t, n1> price1 = {1, 2, 4, 6, 8, 45, 21, 9};  // price array
+    // 测试 1：长度为 8，预期最大利润 47
+    const int16_t n1 = 8;
+    std::array<int32_t, n1> price1 = {1, 2, 4, 6, 8, 45, 21, 9};
     const int64_t max_profit1 =
         dynamic_programming::cut_rod::maxProfitByCuttingRod(price1, n1);
     const int64_t expected_max_profit1 = 47;
@@ -80,10 +84,10 @@ static void test() {
     std::cout << "Maximum profit with " << n1 << " inch road is " << max_profit1
               << std::endl;
 
-    // Test 2
-    const int16_t n2 = 30;  // size of rod
+    // 测试 2：长度为 30，预期最大利润 90
+    const int16_t n2 = 30;
     std::array<int32_t, n2> price2 = {
-        1,  5,  8,  9,  10, 17, 17, 20, 24, 30,  // price array
+        1,  5,  8,  9,  10, 17, 17, 20, 24, 30,
         31, 32, 33, 34, 35, 36, 37, 38, 39, 40,
         41, 42, 43, 44, 45, 46, 47, 48, 49, 50};
 
@@ -93,9 +97,10 @@ static void test() {
     assert(max_profit2 == expected_max_profit2);
     std::cout << "Maximum profit with " << n2 << " inch road is " << max_profit2
               << std::endl;
-    // Test 3
-    const int16_t n3 = 5;                                 // size of rod
-    std::array<int32_t, n3> price3 = {2, 9, 17, 23, 45};  // price array
+
+    // 测试 3：长度为 5，预期最大利润 45
+    const int16_t n3 = 5;
+    std::array<int32_t, n3> price3 = {2, 9, 17, 23, 45};
     const int64_t max_profit3 =
         dynamic_programming::cut_rod::maxProfitByCuttingRod(price3, n3);
     const int64_t expected_max_profit3 = 45;
@@ -105,11 +110,9 @@ static void test() {
 }
 
 /**
- * @brief Main function
- * @returns 0 on exit
+ * @brief 主函数
  */
 int main() {
-    // Testing
-    test();
+    test(); // 运行自测
     return 0;
 }

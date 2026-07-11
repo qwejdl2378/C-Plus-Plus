@@ -1,54 +1,48 @@
 /**
  * @file
- * @brief Checks whether a number is an [Armstrong
- * Number](https://en.wikipedia.org/wiki/Narcissistic_number) or not.
+ * @brief Checks whether a number is an [Armstrong Number](https://en.wikipedia.org/wiki/Narcissistic_number) or not (检查阿姆斯特朗数/水仙花数)
  *
  * @details
- * An Armstrong number is a number that is the sum of its own digits each raised
- * to the power of the number of digits. For example: 153 is an Armstrong number
- * since 153 = 1^3 + 5^3 + 3^3.
+ * 阿姆斯特朗数（Armstrong Number，亦称水仙花数、自恋数）：
+ * 一个 n 位非负整数，其各位数字的 n 次方和等于该数本身。
+ * 例如：153 是一个 3 位数，且 153 = 1^3 + 5^3 + 3^3，因此它是阿姆斯特朗数。
  *
- * A few examples of valid armstrong numbers:
- * 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 153, 370, 371, 407, 1634, 8208, 9474, 54748,
- * 92727, 93084.
- *
- * Armstrong numbers are also known as Narcissistic Numbers, as stated in
- * Wikipedia.
+ * 常见的阿姆斯特朗数包括：0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 153, 370, 371, 407, 1634...
+ * 
+ * @note
+ * 提示：该文件虽被分类在 `dynamic_programming` 命名空间下，但其逻辑仅为基本的算术迭代，未涉及动态规划的记忆化或递推优化。
  *
  * @author [Shivam Singhal](https://github.com/shivhek25)
  * @author [David Leal](https://github.com/Panquesito7)
  */
 
-#include <cassert>   /// for assert
-#include <cmath>     /// for std::pow
-#include <iostream>  /// for IO operations
+#include <cassert>   /// 用于 assert 断言
+#include <cmath>     /// 用于 std::pow 指数幂计算
+#include <iostream>  /// 用于输入输出
 
 /**
- * @namespace
- * @brief Dynamic Programming algorithms
+ * @namespace dynamic_programming
+ * @brief 动态规划算法命名空间
  */
 namespace dynamic_programming {
 
 /**
- * @brief Checks if the given number is armstrong or not.
- * @param number the number to check
- * @returns false if the given number is NOT armstrong
- * @returns true if the given number IS armstrong
+ * @brief 检查一个数是否为阿姆斯特朗数
+ * @tparam T 数值类型（支持各类整型）
+ * @param number 待检查的数值
+ * @returns `true` 是阿姆斯特朗数；`false` 否则
  */
 template <typename T>
 bool is_armstrong(const T &number) {
     int count = 0, temp = number, result = 0, rem = 0;
 
-    // Count the number of digits of the given number.
-    // For example: 153 would be 3 digits.
+    // 第一步：计算数字的位数 (例如 153 为 3 位)
     while (temp != 0) {
         temp /= 10;
         count++;
     }
 
-    // Calculation for checking of armstrongs number i.e.
-    // in an n-digit number sum of the digits is raised to a power of `n` is
-    // equal to the original number.
+    // 第二步：累加每个数字的 count 次幂
     temp = number;
     while (temp != 0) {
         rem = temp % 10;
@@ -56,17 +50,13 @@ bool is_armstrong(const T &number) {
         temp /= 10;
     }
 
-    if (result == number) {
-        return true;
-    } else {
-        return false;
-    }
+    // 第三步：判断累加结果是否等于原数
+    return result == number;
 }
 }  // namespace dynamic_programming
 
 /**
- * @brief Self-test implementations
- * @returns void
+ * @brief 单元自测用例
  */
 static void tests() {
     assert(dynamic_programming::is_armstrong(153) == true);
@@ -84,10 +74,10 @@ static void tests() {
 }
 
 /**
- * @brief Main function
- * @returns 0 on exit
+ * @brief 主函数
+ * @returns 0
  */
 int main() {
-    tests();  // run self-test implementations
+    tests();  // 运行自测
     return 0;
 }
