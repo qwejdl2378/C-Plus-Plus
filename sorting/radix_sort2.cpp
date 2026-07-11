@@ -1,93 +1,100 @@
 /**
  * @file
- * @brief Algorithm of [Radix sort](https://en.wikipedia.org/wiki/Radix_sort)
- * @author [Suyash Jaiswal](https://github.com/Suyashjaiswal)
+ * @brief Implementation of [Radix sort](https://en.wikipedia.org/wiki/Radix_sort) using counting sort subroutine (基于计数排序的基数排序优化实现)
+ *
  * @details
- * Sort the vector of unsigned integers using radix sort i.e. sorting digit by
- * digit using [Counting Sort](https://en.wikipedia.org/wiki/Counting_sort) as
- * subroutine. Running time of radix sort is O(d*(n+b)) where b is the base for
- * representing numbers and d in the max digits in input integers and n is
- * number of unsigned integers. consider example for n = 5, aray elements =
- * 432,234,143,332,123 sorting digit by digit sorting according to 1) 1st digit
- * place
- * => 432, 332, 143, 123, 234
+ * 相比于原版 `radix_sort.cpp`，本版本（radix_sort2）使用了标准的基于偏移量前缀和的**稳定计数排序（Counting Sort）**作为子程序。
+ * 避免了原版多次全扫描的不必要开销。
  *
- * 2) 2nd digit place
- * => 123, 432, 332, 234, 143
+ * ### 性能分析
+ * - 时间复杂度: $O(d \cdot (N + B))$，其中 d 为数字的位数，B 为基数（十进制下为 10）。
+ * - 空间复杂度: $O(N + B)$。
  *
- * 3) 3rd digit place
- * => 123, 143, 234, 332, 432
+ * @note
+ * 【原版代码的严重数据溢出与崩溃 Bug 审计与修复】：
+ * 1. **整数类型截断/溢出 Bug**：在第 51 行中，子程序的参数 `cur_digit` 被声明为 `uint16_t`（最大范围 65535）。
+ *    而在 `radix` 的数位权重循环中，`i` 会随着乘以 10 迅速超过 65535（如 100000, 1000000）。
+ *    这会导致传入的权重发生**整型截断溢出（Integer Wrap-around）**。一旦数字大于 65535，排序逻辑将彻底失效。
+ *    现已将 `cur_digit` 改为与元素类型匹配的 `uint64_t`。
+ * 2. **空数组解引用崩溃 Bug**：在第 84 行中，代码直接调用 `*max_element(ar.begin(), ar.end())`。
+ *    如果输入的 `vector` 为空，对 `ar.end()` 进行解引用会触发**段错误崩溃（Segmentation Fault）**。
+ *    现已在函数入口处添加了空数组的安全防护拦截。
  *
- * using count sort at each step, which is stable.
- * stable => already sorted according to previous digits.
+ * @author [Suyash Jaiswal](https://github.com/Suyashjaiswal)
  */
 
-/// header files
-
-#include <algorithm>  /// for collection of functions
-#include <cassert>  /// for a macro called assert which can be used to verify assumptions
-#include <cstdint>
-#include <iostream>  /// for io operations
-#include <vector>    /// for std::vector
+#include <algorithm>  /// 用于 std::max_element, std::is_sorted
+#include <cassert>    /// 用于 assert 断言
+#include <cstdint>   /// 用于 uint64_t, uint32_t 等类型
+#include <iostream>   /// 用于标准输出
+#include <vector>     /// 用于 std::vector
 
 /**
  * @namespace sorting
- * @brief Sorting algorithms
+ * @brief 排序算法命名空间
  */
 namespace sorting {
 /**
  * @namespace radix_sort
- * @brief Functions for [Radix sort](https://en.wikipedia.org/wiki/Radix_sort)
- * algorithm
+ * @brief 基数排序算法命名空间
  */
 namespace radix_sort {
+
 /**
- * @brief Function to sort vector according to current digit using stable
- * sorting.
- * @param cur_digit - sort according to the cur_digit
- * @param ar - vector to be sorted
- * @returns std::vector sorted till ith digit
+ * @brief 针对当前数位（权重）的稳定计数排序子程序
+ * @param cur_digit 当前比较数位的权重（如 1, 10, 100, 1000 ...）
+ * @param ar 待排序数组
+ * @returns 针对当前位有序的新数组
  */
 std::vector<uint64_t> step_ith(
-    uint16_t cur_digit,
-    const std::vector<uint64_t>& ar) {  // sorting according to current digit.
+    uint64_t cur_digit, // 核心修复：类型从 uint16_t 改为 uint64_t，防止高位权重溢出
+    const std::vector<uint64_t>& ar) {
     int n = ar.size();
+    
+    // 1. 统计当前位上各数字的频次（0~9）
     std::vector<uint32_t> position(10, 0);
     for (int i = 0; i < n; ++i) {
-        position[(ar[i] / cur_digit) %
-                 10]++;  // counting frequency of 0-9 at cur_digit.
+        position[(ar[i] / cur_digit) % 10]++;
     }
+    
+    // 2. 累加前缀和，计算每个数字在输出数组中的起始偏移位置
     int cur = 0;
     for (int i = 0; i < 10; ++i) {
         int a = position[i];
-        position[i] = cur;  // assingning starting position of 0-9.
+        position[i] = cur;
         cur += a;
     }
+    
+    // 3. 根据起始位置稳定写回临时数组
     std::vector<uint64_t> temp(n);
     for (int i = 0; i < n; ++i) {
-        temp[position[(ar[i] / cur_digit) % 10]] =
-            ar[i];  // storing ar[i] in ar[i]'s cur_digit expected position of
-                    // this step.
-        position[(ar[i] / cur_digit) %
-                 10]++;  // incrementing ar[i]'s cur_digit position by 1, as
-                         // current place used by ar[i].
+        temp[position[(ar[i] / cur_digit) % 10]] = ar[i];
+        position[(ar[i] / cur_digit) % 10]++; // 更新下个相同数字的写回位置
     }
     return temp;
 }
+
 /**
- * @brief Function to sort vector digit by digit.
- * @param ar - vector to be sorted
- * @returns sorted vector
+ * @brief 基数排序主入口
+ * @param ar 待排序的无符号整型数组
+ * @returns 排序完毕的新数组
  */
 std::vector<uint64_t> radix(const std::vector<uint64_t>& ar) {
-    uint64_t max_ele =
-        *max_element(ar.begin(), ar.end());  // returns the max element.
+    // 核心修复：空安全防线
+    if (ar.empty()) {
+        return ar;
+    }
+
+    // 寻找最大元素
+    uint64_t max_ele = *std::max_element(ar.begin(), ar.end());
     std::vector<uint64_t> temp = ar;
-    for (int i = 1; max_ele / i > 0;
-         i *= 10) {  // loop breaks when i > max_ele because no further digits
-                     // left to makes changes in aray.
+    
+    // 逐位处理：从个位（1）开始，每次循环乘 10
+    // 当权重 i 超过最大元素时，说明所有数字都已完成了最高位的分配，循环终止
+    for (uint64_t i = 1; max_ele / i > 0; i *= 10) {
         temp = step_ith(i, temp);
     }
+    
     for (uint64_t i : temp) {
         std::cout << i << " ";
     }
@@ -98,25 +105,27 @@ std::vector<uint64_t> radix(const std::vector<uint64_t>& ar) {
 }  // namespace sorting
 
 /**
- * @brief Function to test the above algorithm
- * @returns none
+ * @brief 单元自测用例
  */
 static void tests() {
-    /// Test 1
+    // 测试 1
     std::vector<uint64_t> ar1 = {432, 234, 143, 332, 123};
     ar1 = sorting::radix_sort::radix(ar1);
     assert(std::is_sorted(ar1.begin(), ar1.end()));
-    /// Test 2
-    std::vector<uint64_t> ar2 = {213, 3214, 123, 111, 112, 142,
+
+    // 测试 2: 包含大于 65535 的大数（用以验证溢出 Bug 的修复效果）
+    std::vector<uint64_t> ar2 = {200000, 3214, 123, 111, 112, 100042,
                                  133, 132,  32,  12,  113};
     ar2 = sorting::radix_sort::radix(ar2);
     assert(std::is_sorted(ar2.begin(), ar2.end()));
+    
+    std::cout << "All radix sort 2 tests passed!" << std::endl;
 }
+
 /**
- * @brief Main function
- * @returns 0 on exit
+ * @brief 主函数
  */
 int main() {
-    tests();  // execute the tests
+    tests(); // 运行自测
     return 0;
 }

@@ -1,146 +1,105 @@
 /**
  * @file
- * @author [Aditya Prakash](https://adityaprakash.tech)
- * @brief This is an implementation of a recursive version of the [Bubble sort
- algorithm](https://www.geeksforgeeks.org/recursive-bubble-sort/)
+ * @brief Implementation of recursive [Bubble Sort](https://www.geeksforgeeks.org/recursive-bubble-sort/) algorithm (递归版冒泡排序算法实现)
  *
  * @details
- * The working principle of the Bubble sort algorithm.
+ * 递归版冒泡排序通过函数递归调用栈取代了传统冒泡排序的外层循环。
+ * 
+ * ### 递归过程
+ * 1. **单趟冒泡**：通过单层 `for` 循环遍历已缩小的子区间 `[0, n-1]`，将当前区间内的最大值通过相邻交换“浮动”到该区间的末尾位置 `n-1`。
+ * 2. **锁定末尾并递归**：最后一项元素已经归位。递归调用自身对剩余前 `n-1` 个元素继续进行冒泡排序。
+ * 3. **递归出口（Base Case）**：当子区间大小 `n` 缩小到 1 时，意味着全部元素均已排好序，递归返回。
+ *
+ * 时间复杂度: $O(N^2)$ (最坏/平均)，$O(N)$ (最好，若加入单趟交换检查优化)
+ * 空间复杂度: $O(N)$ (递归调用栈深度达 N 层)
+ *
+ * @note
+ * 【空数组下溢越界 Bug 审计与修复】：
+ * 原代码的递归基判定为：`if (n == 1) return;`。
+ * **如果输入数组为空（`nums->size() == 0`，即 `n = 0`），**
+ * 代码会跳过递归基校验，进入循环 `for (uint64_t i = 0; i < n - 1; i++)`。
+ * 由于 `n` 是无符号整型 `uint64_t`，`0 - 1` 会产生**无符号整数下溢（Unsigned Underflow）**，
+ * 变成 $2^{64}-1$，导致循环启动并越界访问空 vector 的元素，造成**段错误崩溃（Segmentation Fault）**。
+ * 
+ * ### 修复方案
+ * - 将递归出口修改为更安全的：`if (n <= 1) return;`。
+ *
+ * @author [Aditya Prakash](https://adityaprakash.tech)
+ */
 
- * Bubble sort is a simple sorting algorithm used to rearrange a set of
- ascending or descending order elements.
- * Bubble sort gets its name from the fact that data "bubbles" to the top of the
- dataset.
-
- * ### Algorithm
-
- * What is Swap?
-
- * Swapping two numbers means that we interchange their values.
- * Often, an additional variable is required for this operation.
- * This is further illustrated in the following:
-
- * void swap(int x, int y){
- *     int z = x;
- *     x = y;
- *     y = z;
- * }
-
- * The above process is a typical displacement process.
- * When we assign a value to x, the old value of x is lost.
- * That's why we create a temporary variable z to store the initial value of x.
- * z is further used to assign the initial value of x to y, to complete
- swapping.
-
- * Recursion
-
- * While the recursive method does not necessarily have advantages over
- iterative
- * versions, but it is useful to enhance the understanding of the algorithm and
- * recursion itself. In Recursive Bubble sort algorithm, we firstly call the
- * function on the entire array, and for every subsequent function call, we
- exclude
- * the last element. This fixes the last element for that sub-array.Formally,
- for
- * `ith` iteration, we consider elements up to n-i, where n is the number of
- * elements in the array. Exit condition: n==1; i.e. the sub-array contains only
- * one element.
-
- * Complexity
- * Time complexity: O(n) best case; O(n²) average case; O(n²) worst case
- * Space complexity: O(n)
-
- * We need to traverse the array `n * (n-1)` times. However, if the entire array
- is
- * already sorted, then we need to traverse it only once. Hence, O(n) is the
- best case
- * complexity
-*/
-
-#include <algorithm>  /// for std::is_sorted
-#include <cassert>    /// for assert
-#include <cstdint>
-#include <iostream>   /// for IO operations
-#include <vector>     /// for std::vector
+#include <algorithm>  /// 用于 std::is_sorted
+#include <cassert>    /// 用于 assert 断言
+#include <cstdint>   /// 用于 uint64_t
+#include <iostream>   /// 用于输入输出
+#include <vector>     /// 用于 std::vector
 
 /**
  * @namespace sorting
- * @brief Sorting algorithms
+ * @brief 排序算法命名空间
  */
 namespace sorting {
 
 /**
- * @brief This is an implementation of the recursive_bubble_sort. A vector is
- * passed to the function which is then dereferenced, so that the changes are
- * reflected in the original vector. It also accepts a second parameter of
- * type `int` and name `n`, which is the size of the array.
- *
- * @tparam T type of data variables in the array
- * @param nums our array of elements.
- * @param n size of the array
+ * @brief 递归版冒泡排序主函数
+ * @tparam T 元素模板类型
+ * @param nums 待排序的 vector 指针
+ * @param n 当前待排序子区间的长度
  */
 template <typename T>
 void recursive_bubble_sort(std::vector<T> *nums, uint64_t n) {
-    if (n == 1) {  //!< base case; when size of the array is 1
+    // 核心修复：修改为 <= 1，防止空数组输入时产生 unsigned 0-1 下溢越界崩溃
+    if (n <= 1) {
         return;
     }
 
-    for (uint64_t i = 0; i < n - 1; i++) {  //!< iterating over the entire array
-        //!< if a larger number appears before the smaller one, swap them.
+    // 单趟扫描：将当前范围内的最大值交换到末尾
+    for (uint64_t i = 0; i < n - 1; i++) {
         if ((*nums)[i] > (*nums)[i + 1]) {
             std::swap((*nums)[i], (*nums)[i + 1]);
         }
     }
 
-    //!< calling the function after we have fixed the last element
+    // 递归处理剩下前 n-1 个元素的子区间
     recursive_bubble_sort(nums, n - 1);
 }
 }  // namespace sorting
 
 /**
- * @brief Self-test implementations
- * @returns void
+ * @brief 单元自测用例
  */
 static void test() {
-    // 1st example. Creating an array of type `int`.
+    // 测试 1: 整型数组
     std::cout << "1st test using `int`\n";
     const uint64_t size = 6;
     std::vector<int64_t> arr;
-    // populating the array
     arr.push_back(22);
     arr.push_back(46);
     arr.push_back(94);
     arr.push_back(12);
     arr.push_back(37);
     arr.push_back(63);
-    // array populating ends
 
     sorting::recursive_bubble_sort(&arr, size);
     assert(std::is_sorted(std::begin(arr), std::end(arr)));
     std::cout << " 1st test passed!\n";
-    // printing the array
     for (uint64_t i = 0; i < size; i++) {
         std::cout << arr[i] << ", ";
     }
     std::cout << std::endl;
 
-    // 2nd example. Creating an array of type `double`.
+    // 测试 2: 浮点数数组
     std::cout << "2nd test using doubles\n";
     std::vector<double> double_arr;
-
-    // populating the array
     double_arr.push_back(20.4);
     double_arr.push_back(62.7);
     double_arr.push_back(12.2);
     double_arr.push_back(43.6);
     double_arr.push_back(74.1);
     double_arr.push_back(57.9);
-    // array populating ends
 
     sorting::recursive_bubble_sort(&double_arr, size);
     assert(std::is_sorted(std::begin(double_arr), std::end(double_arr)));
     std::cout << " 2nd test passed!\n";
-    // printing the array
     for (uint64_t i = 0; i < size; i++) {
         std::cout << double_arr[i] << ", ";
     }
@@ -148,10 +107,9 @@ static void test() {
 }
 
 /**
- * @brief Main function
- * @returns 0 on exit
+ * @brief 主函数
  */
 int main() {
-    test();  // run self-test implementations
+    test();  // 运行自测
     return 0;
 }

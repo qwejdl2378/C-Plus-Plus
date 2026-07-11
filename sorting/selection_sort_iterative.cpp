@@ -1,81 +1,86 @@
-/******************************************************************************
+/**
  * @file
- * @brief Implementation of the [Selection
- * sort](https://en.wikipedia.org/wiki/Selection_sort) implementation using
- * swapping
+ * @brief Implementation of iterative [Selection Sort](https://en.wikipedia.org/wiki/Selection_sort) algorithm (迭代版选择排序算法实现)
+ *
  * @details
- * The selection sort algorithm divides the input vector into two parts: a
- * sorted subvector of items which is built up from left to right at the front
- * (left) of the vector, and a subvector of the remaining unsorted items that
- * occupy the rest of the vector. Initially, the sorted subvector is empty, and
- * the unsorted subvector is the entire input vector. The algorithm proceeds by
- * finding the smallest (or largest, depending on the sorting order) element in
- * the unsorted subvector, exchanging (swapping) it with the leftmost unsorted
- * element (putting it in sorted order), and moving the subvector boundaries one
- * element to the right.
+ * 选择排序（Selection Sort）是一种简单直观的排序算法。
+ * 它的工作原理如下：
+ * 1. 数组被分为“已排序”和“未排序”两部分。初始时已排序部分为空。
+ * 2. 在未排序部分中找到最小（或最大）的元素，将其与未排序部分的第一个元素进行交换。
+ * 3. 交换后，已排序部分增加一个元素，未排序部分减少一个元素。
+ * 4. 重复步骤 2 和 3，直到所有元素都已归入已排序部分。
  *
- * ### Implementation
+ * ### 性能与稳定性
+ * - 选择排序是**不稳定排序（Unstable Sort）**。因为交换操作可能会改变等值元素的初始相对顺序（例如 `[5, 5, 2]`，把 2 和第一个 5 交换后，两个 5 的相对位置就变了）。
+ * - 它的优点是：**数据移动（Swap）次数非常少**，最多为 $N-1$ 次。
  *
- * SelectionSort
- * The algorithm divides the input vector into two parts: the subvector of items
- * already sorted, which is built up from left to right. Initially, the sorted
- * subvector is empty and the unsorted subvector is the entire input vector. The
- * algorithm proceeds by finding the smallest element in the unsorted subvector,
- * exchanging (swapping) it with the leftmost unsorted element (putting it in
- * sorted order), and moving the subvector boundaries one element to the right.
+ * @note
+ * 【C++ 复制粘贴隐患与越界风险审计】：
+ * 1. **测试用例变量拷贝错误**：在第 112 行测试 4 中，代码写为 `uint64_t vector4size = vector2.size();`。
+ *    这里由于拷贝粘贴失误，错误地使用了 `vector2` 的大小来代表 `vector4` 的大小。
+ *    虽然本例中两者大小碰巧相同，但这属于严重的编码安全隐患。已修正为 `vector4.size()`。
+ * 2. **大小参数越界风险**：函数签名中接受了显式参数 `len`。若调用方传入的 `len` 大于 `arr.size()`，
+ *    循环 `it < len` 会直接越界访问 `array[it]`，导致**内存溢出或崩溃**。
+ *    已在函数内添加了安全保护 `len = std::min(len, static_cast<uint64_t>(array.size()));`。
  *
+ * 时间复杂度: $O(N^2)$ (最好、最坏、平均)
+ * 空间复杂度: $O(N)$ (由于函数返回了一个新的 vector 副本)
+ * 
  * @author [Lajat Manekar](https://github.com/Lazeeez)
- * @author Unknown author
- *******************************************************************************/
-#include <algorithm>  /// for std::is_sorted
-#include <cassert>    /// for std::assert
-#include <cstdint>
-#include <iostream>   /// for IO operations
-#include <vector>     /// for std::vector
+ */
 
-/******************************************************************************
+#include <algorithm>  /// 用于 std::is_sorted, std::min
+#include <cassert>    /// 用于 assert 断言
+#include <cstdint>   /// 用于 uint64_t
+#include <iostream>   /// 用于输入输出
+#include <vector>     /// 用于 std::vector
+
+/**
  * @namespace sorting
- * @brief Sorting algorithms
- *******************************************************************************/
+ * @brief 排序算法命名空间
+ */
 namespace sorting {
-/******************************************************************************
- * @brief The main function which implements Selection sort
- * @param arr vector to be sorted
- * @param len length of vector to be sorted
- * @returns @param array resultant sorted vector
- *******************************************************************************/
 
+/**
+ * @brief 选择排序核心算法（迭代版）
+ * @param arr 待排序数组只读引用
+ * @param len 排序范围大小
+ * @returns 排序完毕的新数组
+ */
 std::vector<uint64_t> selectionSort(const std::vector<uint64_t> &arr,
                                     uint64_t len) {
-    std::vector<uint64_t> array(
-        arr.begin(),
-        arr.end());  // declare a vector in which result will be stored
+    std::vector<uint64_t> array(arr.begin(), arr.end()); // 构造副本
+
+    // 安全防范：防止 len 参数超出实际数组范围导致越界崩溃
+    len = std::min(len, static_cast<uint64_t>(array.size()));
+
     for (uint64_t it = 0; it < len; ++it) {
-        uint64_t min = it;  // set min value
+        uint64_t min = it; // 假定当前未排序区间的首元素为最小值
+        
+        // 在未排序区间中寻找更小值的索引
         for (uint64_t it2 = it + 1; it2 < len; ++it2) {
-            if (array[it2] < array[min]) {  // check which element is smaller
-                min = it2;  // store index of smallest element to min
+            if (array[it2] < array[min]) {
+                min = it2; // 记录新的最小值索引
             }
         }
 
-        if (min != it) {  // swap if min does not match to i
+        // 如果最小值不是当前未排序区间的首位，则执行交换
+        if (min != it) {
             uint64_t tmp = array[min];
             array[min] = array[it];
             array[it] = tmp;
         }
     }
 
-    return array;  // return sorted vector
+    return array;
 }
 }  // namespace sorting
 
-/*******************************************************************************
- * @brief Self-test implementations
- * @returns void
- *******************************************************************************/
+/**
+ * @brief 单元自测用例
+ */
 static void test() {
-    // testcase #1
-    // [1, 0, 0, 1, 1, 0, 2, 1] returns [0, 0, 0, 1, 1, 1, 1, 2]
+    // 测试 1
     std::vector<uint64_t> vector1 = {1, 0, 0, 1, 1, 0, 2, 1};
     uint64_t vector1size = vector1.size();
     std::cout << "1st test... ";
@@ -84,9 +89,7 @@ static void test() {
     assert(std::is_sorted(result_test1.begin(), result_test1.end()));
     std::cout << "Passed" << std::endl;
 
-    // testcase #2
-    // [19, 22, 540, 241, 156, 140, 12, 1] returns [1, 12, 19, 22, 140, 156,
-    // 241,540]
+    // 测试 2
     std::vector<uint64_t> vector2 = {19, 22, 540, 241, 156, 140, 12, 1};
     uint64_t vector2size = vector2.size();
     std::cout << "2nd test... ";
@@ -95,8 +98,7 @@ static void test() {
     assert(std::is_sorted(result_test2.begin(), result_test2.end()));
     std::cout << "Passed" << std::endl;
 
-    // testcase #3
-    // [11, 20, 30, 41, 15, 60, 82, 15] returns [11, 15, 15, 20, 30, 41, 60, 82]
+    // 测试 3
     std::vector<uint64_t> vector3 = {11, 20, 30, 41, 15, 60, 82, 15};
     uint64_t vector3size = vector3.size();
     std::cout << "3rd test... ";
@@ -105,11 +107,9 @@ static void test() {
     assert(std::is_sorted(result_test3.begin(), result_test3.end()));
     std::cout << "Passed" << std::endl;
 
-    // testcase #4
-    // [1, 9, 11, 546, 26, 65, 212, 14, -11] returns [-11, 1, 9, 11, 14, 26, 65,
-    // 212, 546]
+    // 测试 4
     std::vector<uint64_t> vector4 = {1, 9, 11, 546, 26, 65, 212, 14};
-    uint64_t vector4size = vector2.size();
+    uint64_t vector4size = vector4.size(); // 核心修复：更正为使用 vector4.size()
     std::cout << "4th test... ";
     std::vector<uint64_t> result_test4;
     result_test4 = sorting::selectionSort(vector4, vector4size);
@@ -117,11 +117,10 @@ static void test() {
     std::cout << "Passed" << std::endl;
 }
 
-/*******************************************************************************
- * @brief Main function
- * @returns 0 on exit
- *******************************************************************************/
+/**
+ * @brief 主函数
+ */
 int main() {
-    test();  // run self-test implementations
+    test();  // 运行自测
     return 0;
 }

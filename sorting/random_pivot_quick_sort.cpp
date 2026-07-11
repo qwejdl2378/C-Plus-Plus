@@ -1,148 +1,120 @@
 /**
  * @file
- * @brief Implementation of the [Random Pivot Quick
- * Sort](https://www.sanfoundry.com/cpp-program-implement-quick-sort-using-randomisation)
- * algorithm.
+ * @brief Implementation of the Randomized Pivot [Quick Sort](https://en.wikipedia.org/wiki/Quicksort) algorithm (随机基准值快速排序算法实现)
+ *
  * @details
- *          * A random pivot quick sort algorithm is pretty much same as quick
- * sort with a difference of having a logic of selecting next pivot element from
- * the input array.
- *          * Where in quick sort is fast, but still can give you the time
- * complexity of O(n^2) in worst case.
- *          * To avoid hitting the time complexity of O(n^2), we use the logic
- * of randomize the selection process of pivot element.
+ * 随机基准快速排序（Random Pivot Quick Sort）是经典快速排序的变体。
+ * 经典快排在处理近乎有序或逆序的数组时，如果总是选择边界（第一个或最后一个）元素作为基准值（Pivot），
+ * 其划分会极度失衡，导致时间复杂度退化至最坏情况的 $O(N^2)$。
  *
- *          ### Logic
- *              * The logic is pretty simple, the only change is in the
- * partitioning algorithm, which is selecting the pivot element.
- *              * Instead of selecting the last or the first element from array
- * for pivot we use a random index to select pivot element.
- *              * This avoids hitting the O(n^2) time complexity in practical
- * use cases.
+ * 通过在区间 `[start, end]` 内**随机选择一个索引**作为基准，并与边界元素交换后再进行常规划分，
+ * 可以在概率上极大概率地打乱输入特征，将最坏情况发生的概率降为几乎为零，保证实际运行时间稳定在 $O(N \log N)$。
  *
- *       ### Partition Logic
- *           * Partitions are done such as numbers lower than the "pivot"
- * element is arranged on the left side of the "pivot", and number larger than
- * the "pivot" element are arranged on the right part of the array.
+ * @note
+ * 【C++ 随机数种子滥用与性能隐患审计】：
+ * 1. **`srand` 重复初始化 Bug**：原代码在 `getRandomIndex` 和 `generateUnsortedArray` 内部，每次调用时都会执行 `srand(time(nullptr));`。
+ *    由于 `time(nullptr)` 的精度为秒级，在一秒钟内调用数千次排序，随机种子会被重置为**完全相同的值**。
+ *    这导致“随机”生成的基准值全部变成固定的同一个数，完全失去了随机化的保护作用！
+ *    **修复**：删除了子函数内部的 `srand` 初始化，统一交由 `main()` 函数在程序启动时初始化一次即可。
+ * 2. **频繁数组值拷贝性能瓶颈**：原代码的 `quickSortRP` 接口直接通过传值的方式 `std::array<int64_t, size> arr` 传递容器，
+ *    并且在每次递归调用时都复制了整阶 `std::array` 副本（空间开销为 $O(N)$）。
+ *    对于大规模数组，这会引起海量无谓的内存移动，耗尽栈空间。实际工业实现中，应像经典快排一样，通过引用或指针在原数组上进行就地（In-place）修改。
  *
- *       ### Algorithm
- *           * Select the pivot element randomly using getRandomIndex() function
- * from this namespace.
- *           * Initialize the pInd (partition index) from the start of the
- * array.
- *           * Loop through the array from start to less than end. (from start
- * to < end). (Inside the loop) :-
- *                   * Check if the current element (arr[i]) is less than the
- * pivot element in each iteration.
- *                   * If current element in the iteration is less than the
- * pivot element, then swap the elements at current index (i) and partition
- * index (pInd) and increment the partition index by one.
- *           * At the end of the loop, swap the pivot element with partition
- * index element.
- *           * Return the partition index from the function.
- *
+ * 时间复杂度: 平均 $O(N \log N)$，最坏（极小概率） $O(N^2)$
+ * 空间复杂度: $O(N \log N)$ (由于递归时传递了 array 副本)
+ * 
  * @author [Nitin Sharma](https://github.com/foo290)
  */
 
-#include <algorithm>  /// for std::is_sorted(), std::swap()
-#include <array>      /// for std::array
-#include <cassert>    /// for assert
-#include <ctime>      /// for initializing random number generator
-#include <iostream>   /// for IO operations
-#include <tuple>      /// for returning multiple values form a function at once
+#include <algorithm>  /// 用于 std::is_sorted(), std::swap()
+#include <array>      /// 用于 std::array
+#include <cassert>    /// 用于 assert 断言
+#include <ctime>      /// 用于初始化随机发生器
+#include <iostream>   /// 用于输入输出
+#include <tuple>      /// 用于 std::tuple 和 std::tie
 
 /**
  * @namespace sorting
- * @brief Sorting algorithms
+ * @brief 排序算法命名空间
  */
 namespace sorting {
 /**
- * @brief Functions for the [Random Pivot Quick
- * Sort](https://www.sanfoundry.com/cpp-program-implement-quick-sort-using-randomisation)
- * implementation
  * @namespace random_pivot_quick_sort
+ * @brief 随机基准快排算法命名空间
  */
 namespace random_pivot_quick_sort {
+
 /**
- * @brief Utility function to print the array
- * @tparam T size of the array
- * @param arr array used to print its content
- * @returns void
- * */
+ * @brief 辅助打印数组
+ */
 template <size_t T>
 void showArray(std::array<int64_t, T> arr) {
-    for (int64_t i = 0; i < arr.size(); i++) {
+    for (size_t i = 0; i < arr.size(); i++) {
         std::cout << arr[i] << " ";
     }
     std::cout << std::endl;
 }
 
 /**
- * @brief Takes the start and end indices of an array and returns a random
- * int64_teger between the range of those two for selecting pivot element.
- *
- * @param start The starting index.
- * @param end The ending index.
- * @returns int64_t A random number between start and end index.
- * */
+ * @brief 在 [start, end] 区间内生成一个随机索引
+ * @param start 区间起始索引
+ * @param end 区间结束索引
+ * @returns 产生的随机索引值
+ */
 int64_t getRandomIndex(int64_t start, int64_t end) {
-    srand(time(nullptr));  // Initialize random number generator.
-    int64_t randomPivotIndex = start + rand() % (end - start + 1);
+    // 修复：移除内部重复调用 srand(time(nullptr))，以防止随机序列退化为常数
+    int64_t randomPivotIndex = start + std::rand() % (end - start + 1);
     return randomPivotIndex;
 }
 
 /**
- * @brief A partition function which handles the partition logic of quick sort.
- * @tparam size size of the array to be passed as argument.
- * @param start The start index of the passed array
- * @param end The ending index of the passed array
- * @returns std::tuple<int64_t , std::array<int64_t , size>> A tuple of pivot
- * index and pivot sorted array.
+ * @brief Lomuto 划分方案，以 arr[end] 为基准值进行左右划分
+ * @tparam size 数组长度
+ * @param arr 传入的数组副本（按值传递）
+ * @param start 划分起始索引
+ * @param end 划分结束索引
+ * @returns 划分完后的 pivot 索引以及修改后的数组元组
  */
 template <size_t size>
 std::tuple<int64_t, std::array<int64_t, size>> partition(
     std::array<int64_t, size> arr, int64_t start, int64_t end) {
-    int64_t pivot = arr[end];  // Randomly selected element will be here from
-                               // caller function (quickSortRP()).
+    int64_t pivot = arr[end]; 
     int64_t pInd = start;
 
     for (int64_t i = start; i < end; i++) {
         if (arr[i] <= pivot) {
-            std::swap(arr[i], arr[pInd]);  // swapping the elements from current
-                                           // index to pInd.
+            std::swap(arr[i], arr[pInd]);
             pInd++;
         }
     }
-    std::swap(arr[pInd],
-              arr[end]);  // swapping the pivot element to its sorted position
+    std::swap(arr[pInd], arr[end]);
     return std::make_tuple(pInd, arr);
 }
 
 /**
- * @brief Random pivot quick sort function. This function is the starting point
- * of the algorithm.
- * @tparam size size of the array to be passed as argument.
- * @param start The start index of the passed array
- * @param end The ending index of the passed array
- * @returns std::array<int64_t , size> A fully sorted array in ascending order.
+ * @brief 随机基准快速排序主递归函数（传值返回版本）
+ * @tparam size 数组大小
+ * @param arr 输入的数组副本
+ * @param start 起始排序范围
+ * @param end 结束排序范围
+ * @returns 排序好（升序）的新数组
  */
 template <size_t size>
 std::array<int64_t, size> quickSortRP(std::array<int64_t, size> arr,
                                       int64_t start, int64_t end) {
     if (start < end) {
+        // 随机选择基准元素并交换到右边界
         int64_t randomIndex = getRandomIndex(start, end);
-
-        // switching the pivot with right most bound.
         std::swap(arr[end], arr[randomIndex]);
 
         int64_t pivotIndex = 0;
-        // getting pivot index and pivot sorted array.
+        // 执行划分
         std::tie(pivotIndex, arr) = partition(arr, start, end);
 
-        // Recursively calling
-        std::array<int64_t, arr.size()> rightSortingLeft =
+        // 递归排序左半部分和右半部分
+        std::array<int64_t, size> rightSortingLeft =
             quickSortRP(arr, start, pivotIndex - 1);
-        std::array<int64_t, arr.size()> full_sorted =
+        std::array<int64_t, size> full_sorted =
             quickSortRP(rightSortingLeft, pivotIndex + 1, end);
         arr = full_sorted;
     }
@@ -150,21 +122,19 @@ std::array<int64_t, size> quickSortRP(std::array<int64_t, size> arr,
 }
 
 /**
- * @brief A function utility to generate unsorted array of given size and range.
- * @tparam size Size of the output array.
- * @param from Stating of the range.
- * @param to Ending of the range.
- * @returns std::array<int64_t , size> Unsorted array of specified size.
- * */
+ * @brief 生成指定大小和值域范围的随机数数组
+ * @tparam size 静态生成的数组大小
+ * @param from 范围最小值
+ * @param to 范围最大值
+ */
 template <size_t size>
 std::array<int64_t, size> generateUnsortedArray(int64_t from, int64_t to) {
-    srand(time(nullptr));
     std::array<int64_t, size> unsortedArray{};
     assert(from < to);
-    int64_t i = 0;
+    size_t i = 0;
     while (i < size) {
-        int64_t randomNum = from + rand() % (to - from + 1);
-        if (randomNum) {
+        int64_t randomNum = from + std::rand() % (to - from + 1);
+        if (randomNum != 0) { // 避免零元素填充（本实现的一种偏好限制）
             unsortedArray[i] = randomNum;
             i++;
         }
@@ -176,138 +146,99 @@ std::array<int64_t, size> generateUnsortedArray(int64_t from, int64_t to) {
 }  // namespace sorting
 
 /**
- * @brief a class containing the necessary test cases
+ * @brief 包含单元自测用例的类
  */
 class TestCases {
  private:
-    /**
-     * @brief A function to print64_t given message on console.
-     * @tparam T Type of the given message.
-     * @returns void
-     * */
     template <typename T>
     void log(T msg) {
-        // It's just to avoid writing cout and endl
         std::cout << "[TESTS] : ---> " << msg << std::endl;
     }
 
  public:
-    /**
-     * @brief Executes test cases
-     * @returns void
-     * */
     void runTests() {
         log("Running Tests...");
-
         testCase_1();
         testCase_2();
         testCase_3();
-
         log("Test Cases over!");
         std::cout << std::endl;
     }
 
     /**
-     * @brief A test case with single input
-     * @returns void
-     * */
+     * @brief 边界测试：仅包含一个元素的数组
+     */
     void testCase_1() {
         const int64_t inputSize = 1;
-        log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-            "~");
+        log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
         log("This is test case 1 for Random Pivot Quick Sort Algorithm : ");
         log("Description:");
         log("   EDGE CASE : Only contains one element");
         std::array<int64_t, inputSize> unsorted_arr{2};
 
         int64_t start = 0;
-        int64_t end = unsorted_arr.size() - 1;  // length - 1
+        int64_t end = unsorted_arr.size() - 1;
 
-        log("Running algorithm of data of length 50 ...");
         std::array<int64_t, unsorted_arr.size()> sorted_arr =
-            sorting::random_pivot_quick_sort::quickSortRP(unsorted_arr, start,
-                                                          end);
-        log("Algorithm finished!");
+            sorting::random_pivot_quick_sort::quickSortRP(unsorted_arr, start, end);
 
-        log("Checking assert expression...");
         assert(std::is_sorted(sorted_arr.begin(), sorted_arr.end()));
         log("Assertion check passed!");
-
         log("[PASS] : TEST CASE 1 PASS!");
-        log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-            "~");
+        log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
     }
 
     /**
-     * @brief A test case with input array of length 500
-     * @returns void
-     * */
+     * @brief 大数据测试：500 个元素的随机数组
+     */
     void testCase_2() {
         const int64_t inputSize = 500;
-        log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-            "~");
+        log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
         log("Description:");
         log("   BIG INPUT : Contains 500 elements and repeated elements");
         log("This is test case 2 for Random Pivot Quick Sort Algorithm : ");
         std::array<int64_t, inputSize> unsorted_arr =
-            sorting::random_pivot_quick_sort::generateUnsortedArray<inputSize>(
-                1, 10000);
+            sorting::random_pivot_quick_sort::generateUnsortedArray<inputSize>(1, 10000);
 
         int64_t start = 0;
-        int64_t end = unsorted_arr.size() - 1;  // length - 1
+        int64_t end = unsorted_arr.size() - 1;
 
-        log("Running algorithm of data of length 500 ...");
         std::array<int64_t, unsorted_arr.size()> sorted_arr =
-            sorting::random_pivot_quick_sort::quickSortRP(unsorted_arr, start,
-                                                          end);
-        log("Algorithm finished!");
+            sorting::random_pivot_quick_sort::quickSortRP(unsorted_arr, start, end);
 
-        log("Checking assert expression...");
         assert(std::is_sorted(sorted_arr.begin(), sorted_arr.end()));
         log("Assertion check passed!");
-
         log("[PASS] : TEST CASE 2 PASS!");
-        log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-            "~");
+        log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
     }
 
     /**
-     * @brief A test case with array of length 1000.
-     * @returns void
-     * */
+     * @brief 大数据测试：1000 个元素的随机数组
+     */
     void testCase_3() {
         const int64_t inputSize = 1000;
-        log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-            "~");
+        log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
         log("This is test case 3 for Random Pivot Quick Sort Algorithm : ");
         log("Description:");
         log("   LARGE INPUT : Contains 1000 elements and repeated elements");
         std::array<int64_t, inputSize> unsorted_arr =
-            sorting::random_pivot_quick_sort::generateUnsortedArray<inputSize>(
-                1, 10000);
+            sorting::random_pivot_quick_sort::generateUnsortedArray<inputSize>(1, 10000);
 
         int64_t start = 0;
-        int64_t end = unsorted_arr.size() - 1;  // length - 1
+        int64_t end = unsorted_arr.size() - 1;
 
-        log("Running algorithm...");
         std::array<int64_t, unsorted_arr.size()> sorted_arr =
-            sorting::random_pivot_quick_sort::quickSortRP(unsorted_arr, start,
-                                                          end);
-        log("Algorithm finished!");
+            sorting::random_pivot_quick_sort::quickSortRP(unsorted_arr, start, end);
 
-        log("Checking assert expression...");
         assert(std::is_sorted(sorted_arr.begin(), sorted_arr.end()));
         log("Assertion check passed!");
-
         log("[PASS] : TEST CASE 3 PASS!");
-        log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-            "~");
+        log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
     }
 };
 
 /**
- * @brief Self-test implementations
- * @returns void
+ * @brief 测试入口
  */
 static void test() {
     TestCases tc = TestCases();
@@ -315,22 +246,24 @@ static void test() {
 }
 
 /**
- * @brief Main function
- * @returns 0 on exit
+ * @brief 主函数
  */
 int main() {
-    test();  // Executes various test cases.
+    // 整个程序运行期间，只初始化一次随机发生器种子，确保随机质量
+    std::srand(static_cast<unsigned int>(std::time(nullptr)));
+    
+    test(); // 运行测试用例
 
     const int64_t inputSize = 10;
     std::array<int64_t, inputSize> unsorted_array =
-        sorting::random_pivot_quick_sort::generateUnsortedArray<inputSize>(
-            50, 1000);
+        sorting::random_pivot_quick_sort::generateUnsortedArray<inputSize>(50, 1000);
     std::cout << "Unsorted array is : " << std::endl;
     sorting::random_pivot_quick_sort::showArray(unsorted_array);
 
     std::array<int64_t, inputSize> sorted_array =
         sorting::random_pivot_quick_sort::quickSortRP(
             unsorted_array, 0, unsorted_array.size() - 1);
+            
     std::cout << "Sorted array is : " << std::endl;
     sorting::random_pivot_quick_sort::showArray(sorted_array);
     return 0;
