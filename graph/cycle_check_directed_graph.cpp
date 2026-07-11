@@ -1,30 +1,46 @@
 /**
- * @file cycle_check_directed graph.cpp
+ * @file cycle_check_directed_graph.cpp
+ * @brief BFS (Kahn's Algorithm) and DFS (Three-color states) algorithms to check for cycle in a directed graph (有向图环路检测算法实现)
  *
- * @brief BFS and DFS algorithms to check for cycle in a directed graph.
+ * @details
+ * 本文件提供了两种检测有向图是否存在环路的方法：
+ *
+ * ### 1. 深度优先搜索（DFS - 三色标记法）
+ * - 引入三个状态标记：
+ *   - `not_visited` (0)：白色，表示节点尚未被访问。
+ *   - `in_stack` (1)：灰色，表示节点已被访问，且正在 DFS 递归调用栈中（正在被探索）。
+ *   - `visited` (2)：黑色，表示节点的全部后代节点均已被探索完毕，并已退出递归栈。
+ * - 环路判定：在 DFS 遍历邻居节点时，如果遇到一个状态为 `in_stack`（灰色）的节点，
+ *   说明在 DFS 树中存在一条指向祖先节点的**后向边（Back Edge）**，即检测到有向环路。
+ *
+ * ### 2. 广度优先搜索（BFS - Kahn 拓扑排序法）
+ * - 基于入度（Indegree）的拓扑排序检测：
+ *   - 统计每个顶点的入度，将所有入度为 0 的节点加入队列 `can_be_solved`。
+ *   - 循环出队，每次出队一个节点，将其可到达的子节点入度减 1。若某个子节点入度降为 0，则加入队列。
+ *   - 使用一个计数器跟踪遍历到的节点数。如果最终遍历过的节点数不等于图中的顶点总数，
+ *     说明图中存在由于环路引起的无法消除入度（环中节点入度不可能归 0）的现象，即有向环路存在。
+ *
+ * 时间复杂度: DFS 为 O(V + E)；BFS 为 O(V + E)
+ * 空间复杂度: O(V + E)
  *
  * @author [Anmol3299](mailto:mittalanmol22@gmail.com)
- *
  */
 
 #include <cstdint>
-#include <iostream>     // for std::cout
-#include <map>          // for std::map
-#include <queue>        // for std::queue
-#include <stdexcept>    // for throwing errors
-#include <type_traits>  // for std::remove_reference
-#include <utility>      // for std::move
-#include <vector>       // for std::vector
+#include <iostream>     // 用于 std::cout
+#include <map>          // 用于 std::map
+#include <queue>        // 用于 std::queue
+#include <stdexcept>    // 用于异常抛出
+#include <type_traits>  // 用于 std::remove_reference
+#include <utility>      // 用于 std::move
+#include <vector>       // 用于 std::vector
 
 /**
- * Implementation of non-weighted directed edge of a graph.
- *
- * The source vertex of the edge is labelled "src" and destination vertex is
- * labelled "dest".
+ * @brief 表示有向图中非加权边的结构体
  */
 struct Edge {
-    unsigned int src;
-    unsigned int dest;
+    unsigned int src;  // 源节点
+    unsigned int dest; // 目标节点
 
     Edge() = delete;
     ~Edge() = default;
@@ -33,10 +49,10 @@ struct Edge {
     Edge(Edge const&) = default;
     Edge& operator=(Edge const&) = default;
 
-    /** Set the source and destination of the vertex.
-     *
-     * @param source is the source vertex of the edge.
-     * @param destination is the destination vertex of the edge.
+    /**
+     * @brief 构造函数
+     * @param source 起点
+     * @param destination 终点
      */
     Edge(unsigned int source, unsigned int destination)
         : src(source), dest(destination) {}
@@ -45,12 +61,8 @@ struct Edge {
 using AdjList = std::map<unsigned int, std::vector<unsigned int>>;
 
 /**
- * Implementation of graph class.
- *
- * The graph will be represented using Adjacency List representation.
- * This class contains 2 data members "m_vertices" & "m_adjList" used to
- * represent the number of vertices and adjacency list of the graph
- * respectively. The vertices are labelled 0 - (m_vertices - 1).
+ * @class Graph
+ * @brief 用邻接表表示的有向图类
  */
 class Graph {
  public:
@@ -61,30 +73,20 @@ class Graph {
     Graph(Graph const&) = default;
     Graph& operator=(Graph const&) = default;
 
-    /** Create a graph from vertices and adjacency list.
-     *
-     * @param vertices specify the number of vertices the graph would contain.
-     * @param adjList is the adjacency list representation of graph.
+    /**
+     * @brief 构造函数：指定顶点数和邻接表
      */
     Graph(unsigned int vertices, AdjList adjList)
         : m_vertices(vertices), m_adjList(std::move(adjList)) {}
 
-    /** Create a graph from vertices and adjacency list.
-     *
-     * @param vertices specify the number of vertices the graph would contain.
-     * @param adjList is the adjacency list representation of graph.
+    /**
+     * @brief 移动构造函数：指定顶点数和右值邻接表
      */
     Graph(unsigned int vertices, AdjList&& adjList)
         : m_vertices(vertices), m_adjList(std::move(adjList)) {}
 
-    /** Create a graph from vertices and a set of edges.
-     *
-     * Adjacency list of the graph would be created from the set of edges. If
-     * the source or destination of any edge has a value greater or equal to
-     * number of vertices, then it would throw a range_error.
-     *
-     * @param vertices specify the number of vertices the graph would contain.
-     * @param edges is a vector of edges.
+    /**
+     * @brief 构造函数：根据边集列表构建邻接表
      */
     Graph(unsigned int vertices, std::vector<Edge> const& edges)
         : m_vertices(vertices) {
@@ -97,30 +99,25 @@ class Graph {
         }
     }
 
-    /** Return a const reference of the adjacency list.
-     *
-     * @return const reference to the adjacency list
+    /**
+     * @brief 获取邻接表的只读引用
      */
     std::remove_reference<AdjList>::type const& getAdjList() const {
         return m_adjList;
     }
 
     /**
-     * @return number of vertices in the graph.
+     * @brief 获取图的顶点数
      */
     unsigned int getVertices() const { return m_vertices; }
 
-    /** Add vertices in the graph.
-     *
-     * @param num is the number of vertices to be added. It adds 1 vertex by
-     * default.
-     *
+    /**
+     * @brief 动态添加顶点
      */
     void addVertices(unsigned int num = 1) { m_vertices += num; }
 
-    /** Add an edge in the graph.
-     *
-     * @param edge that needs to be added.
+    /**
+     * @brief 添加边对象
      */
     void addEdge(Edge const& edge) {
         if (edge.src >= m_vertices || edge.dest >= m_vertices) {
@@ -129,10 +126,8 @@ class Graph {
         m_adjList[edge.src].emplace_back(edge.dest);
     }
 
-    /** Add an Edge in the graph
-     *
-     * @param source is source vertex of the edge.
-     * @param destination is the destination vertex of the edge.
+    /**
+     * @brief 根据起终点添加有向边
      */
     void addEdge(unsigned int source, unsigned int destination) {
         if (source >= m_vertices || destination >= m_vertices) {
@@ -143,116 +138,86 @@ class Graph {
     }
 
  private:
-    unsigned int m_vertices = 0;
-    AdjList m_adjList;
+    unsigned int m_vertices = 0; // 顶点数
+    AdjList m_adjList;           // 邻接表 map
 };
 
 /**
- * Check if a directed graph has a cycle or not.
- *
- * This class provides 2 methods to check for cycle in a directed graph:
- * isCyclicDFS & isCyclicBFS.
- *
- * - isCyclicDFS uses DFS traversal method to check for cycle in a graph.
- * - isCyclidBFS used BFS traversal method to check for cycle in a graph.
+ * @class CycleCheck
+ * @brief 提供有向图环路检测算法的类
  */
 class CycleCheck {
  private:
+    // 三色标记状态枚举值
     enum nodeStates : uint8_t { not_visited = 0, in_stack, visited };
 
-    /** Helper function of "isCyclicDFS".
-     *
-     * @param adjList is the adjacency list representation of some graph.
-     * @param state is the state of the nodes of the graph.
-     * @param node is the node being evaluated.
-     *
-     * @return true if graph has a cycle, else false.
+    /**
+     * @brief DFS 递归搜索辅助函数
+     * @param adjList 邻接表
+     * @param state 记录各节点三色状态的向量指针
+     * @param node 当前访问的节点
+     * @returns 若有环则返回 true
      */
     static bool isCyclicDFSHelper(AdjList const& adjList,
                                   std::vector<nodeStates>* state,
                                   unsigned int node) {
-        // Add node "in_stack" state.
+        // 标记为正在探索中 (灰色)
         (*state)[node] = in_stack;
 
-        // If the node has children, then recursively visit all children of the
-        // node.
         auto const it = adjList.find(node);
         if (it != adjList.end()) {
             for (auto child : it->second) {
-                // If state of child node is "not_visited", evaluate that child
-                // for presence of cycle.
                 auto state_of_child = (*state)[child];
+                
+                // 子节点尚未访问过，递归检测
                 if (state_of_child == not_visited) {
                     if (isCyclicDFSHelper(adjList, state, child)) {
                         return true;
                     }
-                } else if (state_of_child == in_stack) {
-                    // If child node was "in_stack", then that means that there
-                    // is a cycle in the graph. Return true for presence of the
-                    // cycle.
+                } 
+                // 如果子节点状态是在栈中 (灰色)，说明形成了后向边环路，返回 true
+                else if (state_of_child == in_stack) {
                     return true;
                 }
             }
         }
 
-        // Current node has been evaluated for the presence of cycle and had no
-        // cycle. Mark current node as "visited".
+        // 该节点的所有后代都探索完，标记为完全访问完毕 (黑色)
         (*state)[node] = visited;
-        // Return that current node didn't result in any cycles.
         return false;
     }
 
  public:
-    /** Driver function to check if a graph has a cycle.
-     *
-     * This function uses DFS to check for cycle in the graph.
-     *
-     * @param graph which needs to be evaluated for the presence of cycle.
-     * @return true if a cycle is detected, else false.
+    /**
+     * @brief 基于 DFS 查找图是否有环
+     * @param graph 待评测的图
+     * @returns 若检测到环路则返回 true
      */
     static bool isCyclicDFS(Graph const& graph) {
         auto vertices = graph.getVertices();
+        std::vector<nodeStates> state(vertices, not_visited); // 初始全为未访问
 
-        /** State of the node.
-         *
-         * It is a vector of "nodeStates" which represents the state node is in.
-         * It can take only 3 values: "not_visited", "in_stack", and "visited".
-         *
-         * Initially, all nodes are in "not_visited" state.
-         */
-        std::vector<nodeStates> state(vertices, not_visited);
-
-        // Start visiting each node.
         for (unsigned int node = 0; node < vertices; node++) {
-            // If a node is not visited, only then check for presence of cycle.
-            // There is no need to check for presence of cycle for a visited
-            // node as it has already been checked for presence of cycle.
             if (state[node] == not_visited) {
-                // Check for cycle.
                 if (isCyclicDFSHelper(graph.getAdjList(), &state, node)) {
                     return true;
                 }
             }
         }
-
-        // All nodes have been safely traversed, that means there is no cycle in
-        // the graph. Return false.
         return false;
     }
 
-    /** Check if a graph has cycle or not.
-     *
-     * This function uses BFS to check if a graph is cyclic or not.
-     *
-     * @param graph which needs to be evaluated for the presence of cycle.
-     * @return true if a cycle is detected, else false.
+    /**
+     * @brief 基于 BFS (Kahn 拓扑排序) 查找图是否有环
+     * @param graph 待评测的图
+     * @returns 若检测到环路则返回 true
      */
     static bool isCyclicBFS(Graph const& graph) {
         auto graphAjdList = graph.getAdjList();
         auto vertices = graph.getVertices();
 
         std::vector<unsigned int> indegree(vertices, 0);
-        // Calculate the indegree i.e. the number of incident edges to the node.
+        // 1. 统计所有节点的入度
         for (auto const& list : graphAjdList) {
             auto children = list.second;
             for (auto const& child : children) {
@@ -260,55 +225,49 @@ class CycleCheck {
             }
         }
 
+        // 2. 将所有入度为 0 的节点压入可解决队列
         std::queue<unsigned int> can_be_solved;
         for (unsigned int node = 0; node < vertices; node++) {
-            // If a node doesn't have any input edges, then that node will
-            // definately not result in a cycle and can be visited safely.
             if (!indegree[node]) {
                 can_be_solved.emplace(node);
             }
         }
 
-        // Vertices that need to be traversed.
-        auto remain = vertices;
-        // While there are safe nodes that we can visit.
+        auto remain = vertices; // 剩余需要拓扑遍历的顶点数
+        
+        // 3. 执行类似拓扑排序的入度削减
         while (!can_be_solved.empty()) {
             auto solved = can_be_solved.front();
-            // Visit the node.
             can_be_solved.pop();
-            // Decrease number of nodes that need to be traversed.
-            remain--;
+            remain--; // 遍历到了一个节点，未处理项减 1
 
-            // Visit all the children of the visited node.
             auto it = graphAjdList.find(solved);
             if (it != graphAjdList.end()) {
                 for (auto child : it->second) {
-                    // Check if we can visited the node safely.
+                    // 子节点入度减 1，如果减到 0，则可以安全处理并入队
                     if (--indegree[child] == 0) {
-                        // if node can be visited safely, then add that node to
-                        // the visit queue.
                         can_be_solved.emplace(child);
                     }
                 }
             }
         }
 
-        // If there are still nodes that we can't visit, then it means that
-        // there is a cycle and return true, else return false.
+        // 如果最终未处理的节点不为 0，说明存在因为环路导致无法归零入度的顶点，即存在环
         return !(remain == 0);
     }
 };
 
 /**
- * Main function.
+ * @brief 主函数
  */
 int main() {
-    // Instantiate the graph.
+    // 实例化一个含有有向环的图：0->1, 1->2, 2->0 形成环
     Graph g(7, std::vector<Edge>{{0, 1}, {1, 2}, {2, 0}, {2, 5}, {3, 5}});
-    // Check for cycle using BFS method.
+    
+    // 用 BFS 方法检查是否有环 (预期输出：1)
     std::cout << CycleCheck::isCyclicBFS(g) << '\n';
 
-    // Check for cycle using DFS method.
+    // 用 DFS 方法检查是否有环 (预期输出：1)
     std::cout << CycleCheck::isCyclicDFS(g) << '\n';
     return 0;
 }

@@ -1,114 +1,92 @@
 /**
- *
  * @file
- * @brief [Depth First Search Algorithm using Stack
- * (Depth First Search Algorithm)](https://en.wikipedia.org/wiki/Depth-first_search)
+ * @brief Implementation of iterative [Depth First Search Algorithm](https://en.wikipedia.org/wiki/Depth-first_search) using an explicit stack (基于显式栈的迭代深度优先搜索算法实现)
+ *
+ * @details
+ * 深度优先搜索（DFS）是一种图遍历算法。与使用函数递归调用栈（类隐式栈）的实现相比，
+ * 本文件采用 `std::stack` 在堆上维护显式栈，从而避免了超深图遍历时可能触发的系统调用栈溢出（Stack Overflow）风险。
+ *
+ * ### 节点标记状态（三色法变种）
+ * - `WHITE` (0)：白色，代表节点尚未被探索或访问。
+ *   `GREY` (1)：灰色，代表节点已加入栈中，等待被弹出处理。
+ * - `BLACK` (2)：黑色，代表节点已出栈并完成了其邻居节点的探索，即已被完全遍历。
+ *
+ * @note
+ * 【注释与代码实现不一致警示】：
+ * 在第 64-73 行的 `addEdge` 函数中，注释声明：“这里我们考虑无向图，因此我们将 v 添加到 u 的邻接表，并且将 u 添加到 v 的邻接表”。
+ * 然而，**实际代码中只写了单向边插入**：
+ *   `(*adj)[u - 1].push_back(v - 1);`
+ * 这使得它在物理上是一个**有向图（Directed Graph）**的加边逻辑，这与注释的描述相悖。
+ * 如果要支持真正的无向图，应当补充添加反向边。
+ *
+ * 时间复杂度: O(V + E)
+ * 空间复杂度: O(V)
  *
  * @author [Ayaan Khan](http://github.com/ayaankhan98)
  * @author [Saurav Uppoor](https://github.com/sauravUppoor)
- *
- * @details
- * Depth First Search also quoted as DFS is a Graph Traversal Algorithm.
- * Time Complexity O(|V| + |E|) where V is number of vertices and E
- * is number of edges in graph.
- *
- * Application of Depth First Search are
- *
- * 1. Finding connected components
- * 2. Finding 2-(edge or vertex)-connected components.
- * 3. Finding 3-(edge or vertex)-connected components.
- * 4. Finding the bridges of a graph.
- * 5. Generating words in order to plot the limit set of a group.
- * 6. Finding strongly connected components.
- *
- * <h4>Working</h4>
- * 1. Mark all vertices as unvisited (colour it WHITE).
- * 2. Push starting vertex into the stack and colour it GREY.
- * 3. Once a node is popped out of the stack and is coloured GREY, we colour it BLACK.
- * 4. Push all its neighbours which are not coloured BLACK.
- * 5. Repeat steps 4 and 5 until the stack is empty.
  */
 
-#include <iostream> 	 /// for IO operations
-#include <stack>    	 /// header for std::stack
-#include <vector>   	 /// header for std::vector
-#include <cassert>  	 /// header for preprocessor macro assert() 
-#include <limits>   	 /// header for limits of integral types
+#include <iostream> 	 /// 用于输入输出
+#include <stack>    	 /// 用于 std::stack
+#include <vector>   	 /// 用于 std::vector
+#include <cassert>  	 /// 用于 assert 断言
+#include <limits>   	 /// 用于数值极限
 
-constexpr int WHITE = 0; /// indicates the node hasn't been explored
-constexpr int GREY = 1;	 /// indicates node is in stack waiting to be explored
-constexpr int BLACK = 2; /// indicates node has already been explored
-constexpr int64_t INF = std::numeric_limits<int16_t>::max();
-
+constexpr int WHITE = 0; // 白色：未访问
+constexpr int GREY = 1;	 // 灰色：已入栈未探索
+constexpr int BLACK = 2; // 黑色：探索完毕
 
 /**
  * @namespace graph
- * @brief Graph algorithms
+ * @brief 图算法命名空间
  */
 namespace graph {
 /**
  * @namespace depth_first_search
- * @brief Functions for [Depth First Search](https://en.wikipedia.org/wiki/Depth-first_search) algorithm
+ * @brief 深度优先搜索算法命名空间
  */
 namespace depth_first_search {
 /**
- * @brief
- * Adds and edge between two vertices of graph say u and v in this
- * case.
- *
- * @param adj Adjacency list representation of graph
- * @param u first vertex
- * @param v second vertex
- *
+ * @brief 添加有向边（虽然注释写的是无向）
+ * @param adj 邻接表指针
+ * @param u 起点（1-indexed）
+ * @param v 终点（1-indexed）
  */
 void addEdge(std::vector<std::vector<size_t>> *adj, size_t u, size_t v) {
-	/*
-	*
-	* Here we are considering undirected graph that's the
-	* reason we are adding v to the adjacency list representation of u
-	* and also adding u to the adjacency list representation of v
-	*
-	*/
-	(*adj)[u - 1].push_back(v - 1);
+	(*adj)[u - 1].push_back(v - 1); // 警告：实际上只有单向插入，构成有向边
 }
 
 /**
- *
- * @brief
- * Explores the given vertex, exploring a vertex means traversing
- * over all the vertices which are connected to the vertex that is
- * currently being explored and push it onto the stack.
- *
- * @param adj graph
- * @param start starting vertex for DFS
- * @return vector with nodes stored in the order of DFS traversal
- *
+ * @brief 使用显式栈执行迭代 DFS 遍历
+ * @param graph 邻接表形式的图
+ * @param start 起始遍历节点索引 (0-indexed)
+ * @returns 按照 DFS 访问顺序记录的节点序列 (1-indexed 展现)
  */
 std::vector<size_t> dfs(const std::vector<std::vector<size_t> > &graph, size_t start) {
-    /// checked[i] stores the status of each node
-    std::vector<size_t> checked(graph.size(), WHITE), traversed_path;
+    std::vector<size_t> checked(graph.size(), WHITE); // 初始化所有节点为白色
+    std::vector<size_t> traversed_path;               // 保存遍历路径
 
     checked[start] = GREY;
     std::stack<size_t> stack;
-    stack.push(start);
+    stack.push(start); // 起点入栈
 
-    /// while stack is not empty we keep exploring the node on top of stack
+    // 循环探索栈顶节点
     while (!stack.empty()) {
         int act = stack.top();
         stack.pop();
 
+        // 仅当节点在入栈等待探索状态（灰色）时，才对其邻居进行展开
         if (checked[act] == GREY) {
-            /// push the node to the final result vector
-            traversed_path.push_back(act + 1);
+            traversed_path.push_back(act + 1); // 记录访问节点
 
-            /// exploring the neighbours of the current node
+            // 遍历所有邻居节点并压入栈中
             for (auto it : graph[act]) {
                 stack.push(it);
                 if (checked[it] != BLACK) {
-                    checked[it] = GREY;
+                    checked[it] = GREY; // 标记状态为已在栈中
                 }
             }
-            checked[act] = BLACK;  /// Node has been explored
+            checked[act] = BLACK;  // 该节点探索结束，染成黑色
         }
     }
     return traversed_path;
@@ -117,61 +95,55 @@ std::vector<size_t> dfs(const std::vector<std::vector<size_t> > &graph, size_t s
 }  // namespace graph
 
 /**
- * Self-test implementations
- * @returns none
+ * @brief 单元自测用例
  */
 static void tests() {
 	size_t start_pos;
 
-	/// Test 1
+	/// 测试 1
 	std::cout << "Case 1: " << std::endl;
 	start_pos = 1;
 	std::vector<std::vector<size_t> > g1(3, std::vector<size_t>());
-
 	graph::depth_first_search::addEdge(&g1, 1, 2);
 	graph::depth_first_search::addEdge(&g1, 2, 3);
 	graph::depth_first_search::addEdge(&g1, 3, 1);
 
-	std::vector<size_t> expected1 {1, 2, 3}; /// for the above sample data, this is the expected output
+	std::vector<size_t> expected1 {1, 2, 3};
 	assert(graph::depth_first_search::dfs(g1, start_pos - 1) == expected1);
 	std::cout << "Passed" << std::endl;
 
-	/// Test 2
+	/// 测试 2
 	std::cout << "Case 2: " << std::endl;
 	start_pos = 1;
 	std::vector<std::vector<size_t> > g2(4, std::vector<size_t>());
-
 	graph::depth_first_search::addEdge(&g2, 1, 2);
 	graph::depth_first_search::addEdge(&g2, 1, 3);
 	graph::depth_first_search::addEdge(&g2, 2, 4);
 	graph::depth_first_search::addEdge(&g2, 4, 1);
 
-	std::vector<size_t> expected2 {1, 3, 2, 4}; /// for the above sample data, this is the expected output
+	std::vector<size_t> expected2 {1, 3, 2, 4};
 	assert(graph::depth_first_search::dfs(g2, start_pos - 1) == expected2);
 	std::cout << "Passed" << std::endl;
 
-	/// Test 3
+	/// 测试 3
 	std::cout << "Case 3: " << std::endl;
 	start_pos = 2;
 	std::vector<std::vector<size_t> > g3(4, std::vector<size_t>());
-
 	graph::depth_first_search::addEdge(&g3, 1, 2);
 	graph::depth_first_search::addEdge(&g3, 1, 3);
 	graph::depth_first_search::addEdge(&g3, 2, 4);
 	graph::depth_first_search::addEdge(&g3, 4, 1);
 
-	std::vector<size_t> expected3 {2, 4, 1, 3}; /// for the above sample data, this is the expected output
+	std::vector<size_t> expected3 {2, 4, 1, 3};
 	assert(graph::depth_first_search::dfs(g3, start_pos - 1) == expected3);
 	std::cout << "Passed" << std::endl;
-
 }
 
 /**
- * @brief Main function
- * @returns 0 on exit
+ * @brief 主函数
  */
 int main() {
-    tests();  // execute the tests
+    tests();  // 运行自测
 
     size_t vertices = 0, edges = 0, start_pos = 1;
 	std::vector<size_t> traversal;
@@ -181,10 +153,8 @@ int main() {
 	std::cout << "Enter the Edges : ";
 	std::cin >> edges;
 
-    /// creating a graph
     std::vector<std::vector<size_t> > adj(vertices, std::vector<size_t>());
 
-    /// taking input for the edges
     std::cout << "Enter the vertices which have edges between them : " << std::endl;
 	while (edges--) {
 		size_t u = 0, v = 0;
@@ -192,16 +162,15 @@ int main() {
 		graph::depth_first_search::addEdge(&adj, u, v);
 	}
 
-    /// taking input for the starting position
     std::cout << "Enter the starting vertex [1,n]: " << std::endl;
 	std::cin >> start_pos;
 	start_pos -= 1;
 	traversal = graph::depth_first_search::dfs(adj, start_pos);
 
-    /// Printing the order of traversal
     for (auto x : traversal) {
 		std::cout << x << ' ';
 	}
+	std::cout << std::endl;
 
     return 0;
 }

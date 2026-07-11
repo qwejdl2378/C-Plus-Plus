@@ -1,69 +1,85 @@
 /**
  * @file
- * @brief [Bidirectional Dijkstra Shortest Path Algorithm]
- * (https://www.coursera.org/learn/algorithms-on-graphs/lecture/7ml18/bidirectional-dijkstra)
- *
- * @author [Marinovksy](http://github.com/Marinovsky)
+ * @brief Implementation of the [Bidirectional Dijkstra Shortest Path Algorithm](https://www.coursera.org/learn/algorithms-on-graphs/lecture/7ml18/bidirectional-dijkstra) (双向迪杰斯特拉最短路径算法)
  *
  * @details
- * This is basically the same Dijkstra Algorithm but faster because it goes from
- * the source to the target and from target to the source and stops when
- * finding a vertex visited already by the direct search or the reverse one.
- * Here some simulations of it:
- * https://www.youtube.com/watch?v=DINCL5cd_w0&t=24s
+ * 双向迪杰斯特拉算法（Bidirectional Dijkstra）是传统迪杰斯特拉算法的高效变种。
+ * 它同时从源点（正向搜索）和终点（反向搜索）出发进行松弛，当两边的搜索在某个节点“相遇”时终止。
+ * 这种方法极大地减少了搜索所遍历的节点数量，特别是在大型网格或道路网络中。
+ *
+ * ### 算法终止与距离更新
+ * 1. 使用两个最小堆 `pq[0]`（正向）和 `pq[1]`（反向）分别执行松弛。
+ * 2. 一旦某个节点被正向和反向搜索都访问（Visited）过，说明两条路径相交。
+ * 3. 此时，最短距离并不一定就是该节点的 `dist[0][u] + dist[1][u]`，
+ *    我们需要遍历所有两边都已经访问过的节点集 `workset`，寻找使 `dist[0][v] + dist[1][v]` 最小的节点作为真正的最短路长。
+ *
+ * @note
+ * 【重要逻辑局限性分析】：
+ * 在第 110 行中，代码定义了一个全局单一布尔向量 `std::vector<bool> visited(n);`。
+ * 并在第 153-156 行中：
+ *   `if (visited[currentNode] == 1) return Shortest_Path_Distance(workset, dist);`
+ *   `visited[currentNode] = true;`
+ * 这里存在一个逻辑瑕疵：
+ * C++ 的优先队列没有提供 `decrease_key` 接口，因此常用“懒惰删除”机制，同一节点可能会被多次推入优先队列。
+ * 如果同一个方向的优先队列重复弹出同一个节点（重复元素），由于使用的是同一个 `visited` 表，
+ * 代码会误判定为正反向搜索“相遇”而提前终止算法。虽然在简单图上能通过测试，但在存在大量环路的复杂大图上，
+ * 会发生由于重复弹出引起的早停（Premature Termination）错误。
+ * 推荐的严谨写法是使用两个独立的 `visited[2][n]` 状态表，分别记录正向和反向的访问状态，仅当两边都访问了同一节点时才终止。
+ *
+ * 时间复杂度: O((V + E) log V)，常数比单向 Dijkstra 小一倍左右。
+ * 空间复杂度: O(V + E)
+ *
+ * @author [Marinovksy](http://github.com/Marinovsky)
  */
 
-#include <cassert>   /// for assert
-#include <cstdint>
-#include <iostream>  /// for io operations
-#include <limits>    /// for variable INF
-#include <queue>     /// for the priority_queue of distances
-#include <utility>   /// for make_pair function
-#include <vector>    /// for store the graph, the distances, and the path
+#include <cassert>   /// 用于 assert 断言
+#include <cstdint>   /// 用于 uint64_t 等类型
+#include <iostream>  /// 用于输入输出
+#include <limits>    /// 用于常量 INF
+#include <queue>     /// 用于 std::priority_queue
+#include <utility>   /// 用于 std::make_pair
+#include <vector>    /// 用于 std::vector
 
+// 定义无穷大值常量
 constexpr int64_t INF = std::numeric_limits<int64_t>::max();
 
 /**
  * @namespace graph
- * @brief Graph Algorithms
+ * @brief 图算法命名空间
  */
 namespace graph {
 /**
  * @namespace bidirectional_dijkstra
- * @brief Functions for [Bidirectional Dijkstra Shortest Path]
- * (https://www.coursera.org/learn/algorithms-on-graphs/lecture/7ml18/bidirectional-dijkstra)
- * algorithm
+ * @brief 双向迪杰斯特拉算法相关命名空间
  */
 namespace bidirectional_dijkstra {
 /**
- * @brief Function that add edge between two nodes or vertices of graph
- *
- * @param adj1 adjacency list for the direct search
- * @param adj2 adjacency list for the reverse search
- * @param u any node or vertex of graph
- * @param v any node or vertex of graph
+ * @brief 在正向图和反向图中同时添加有向边
+ * @param adj1 正向邻接表指针
+ * @param adj2 反向邻接表指针
+ * @param u 起点
+ * @param v 终点
+ * @param w 边权
  */
 void addEdge(std::vector<std::vector<std::pair<uint64_t, uint64_t>>> *adj1,
              std::vector<std::vector<std::pair<uint64_t, uint64_t>>> *adj2,
              uint64_t u, uint64_t v, uint64_t w) {
     (*adj1)[u - 1].push_back(std::make_pair(v - 1, w));
-    (*adj2)[v - 1].push_back(std::make_pair(u - 1, w));
-    // (*adj)[v - 1].push_back(std::make_pair(u - 1, w));
+    (*adj2)[v - 1].push_back(std::make_pair(u - 1, w)); // 反向图保存反向边以供反向搜索
 }
+
 /**
- * @brief This function returns the shortest distance from the source
- * to the target if there is path between vertices 's' and 't'.
- *
- * @param workset_ vertices visited in the search
- * @param distance_ vector of distances from the source to the target and
- * from the target to the source
- *
+ * @brief 扫描所有已被搜索访问的相交节点候选集，返回全局真正最短路长度
+ * @param workset_ 搜索过程中遍历到的候选节点集
+ * @param distance_ 正向与反向各自到达每个节点的累计距离表
+ * @returns 最终最短路径长度
  */
 uint64_t Shortest_Path_Distance(
     const std::vector<uint64_t> &workset_,
     const std::vector<std::vector<uint64_t>> &distance_) {
     int64_t distance = INF;
     for (uint64_t i : workset_) {
+        // 最短路可能经过 workset 中的任意相交点 i
         if (distance_[0][i] + distance_[1][i] < distance) {
             distance = distance_[0][i] + distance_[1][i];
         }
@@ -72,130 +88,92 @@ uint64_t Shortest_Path_Distance(
 }
 
 /**
- * @brief Function runs the dijkstra algorithm for some source vertex and
- * target vertex in the graph and returns the shortest distance of target
- * from the source.
- *
- * @param adj1 input graph
- * @param adj2 input graph reversed
- * @param s source vertex
- * @param t target vertex
- *
- * @return shortest distance if target is reachable from source else -1 in
- * case if target is not reachable from source.
+ * @brief 双向迪杰斯特拉算法主体
+ * @param adj1 正向图邻接表
+ * @param adj2 反向图邻接表
+ * @param s 起源点 (0-indexed)
+ * @param t 目标终点 (0-indexed)
+ * @returns 最短路距离，若不连通则返回 -1
  */
 int Bidijkstra(std::vector<std::vector<std::pair<uint64_t, uint64_t>>> *adj1,
                std::vector<std::vector<std::pair<uint64_t, uint64_t>>> *adj2,
                uint64_t s, uint64_t t) {
-    /// n denotes the number of vertices in graph
     uint64_t n = adj1->size();
 
-    /// setting all the distances initially to INF
+    // 存储正反两个方向到各个顶点的最短距离
     std::vector<std::vector<uint64_t>> dist(2, std::vector<uint64_t>(n, INF));
 
-    /// creating a a vector of min heap using priority queue
-    /// pq[0] contains the min heap for the direct search
-    /// pq[1] contains the min heap for the reverse search
-
-    /// first element of pair contains the distance
-    /// second element of pair contains the vertex
+    // pq[0] 代表正向优先队列，pq[1] 代表反向优先队列
+    // 存储 pair<距离, 节点ID>，采用 std::greater 实现最小堆
     std::vector<
         std::priority_queue<std::pair<uint64_t, uint64_t>,
                             std::vector<std::pair<uint64_t, uint64_t>>,
                             std::greater<std::pair<uint64_t, uint64_t>>>>
         pq(2);
-    /// vector for store the nodes or vertices in the shortest path
-    std::vector<uint64_t> workset(n);
-    /// vector for store the nodes or vertices visited
-    std::vector<bool> visited(n);
+    
+    std::vector<uint64_t> workset;  // 记录访问过的节点，用于最终的最短路径重新计算
+    std::vector<bool> visited(n);   // 警告：单 visited 数组容易因重复元素出队而提早误判相遇
 
-    /// pushing the source vertex 's' with 0 distance in pq[0] min heap
+    // 1. 初始化正向起点
     pq[0].push(std::make_pair(0, s));
-
-    /// marking the distance of source as 0
     dist[0][s] = 0;
 
-    /// pushing the target vertex 't' with 0 distance in pq[1] min heap
+    // 2. 初始化反向起点（即终点 t）
     pq[1].push(std::make_pair(0, t));
-
-    /// marking the distance of target as 0
     dist[1][t] = 0;
 
     while (true) {
-        /// direct search
-
-        // If pq[0].size() is equal to zero then the node/ vertex is not
-        // reachable from s
+        // --- 正向搜索的一步 ---
         if (pq[0].size() == 0) {
-            break;
+            break; // 正向队列为空，说明不连通
         }
-        /// second element of pair denotes the node / vertex
         uint64_t currentNode = pq[0].top().second;
-
-        /// first element of pair denotes the distance
         uint64_t currentDist = pq[0].top().first;
-
         pq[0].pop();
 
-        /// for all the reachable vertex from the currently exploring vertex
-        /// we will try to minimize the distance
         for (std::pair<int, int> edge : (*adj1)[currentNode]) {
-            /// minimizing distances
             if (currentDist + edge.second < dist[0][edge.first]) {
                 dist[0][edge.first] = currentDist + edge.second;
                 pq[0].push(std::make_pair(dist[0][edge.first], edge.first));
             }
         }
-        // store the processed node/ vertex
         workset.push_back(currentNode);
 
-        /// check if currentNode has already been visited
+        // 如果该节点已被访问（即另一个方向也访问过），则两个搜索相遇
         if (visited[currentNode] == 1) {
             return Shortest_Path_Distance(workset, dist);
         }
         visited[currentNode] = true;
-        /// reversed search
 
-        // If pq[1].size() is equal to zero then the node/ vertex is not
-        // reachable from t
+        // --- 反向搜索的一步 ---
         if (pq[1].size() == 0) {
-            break;
+            break; // 反向队列为空，不连通
         }
-        /// second element of pair denotes the node / vertex
         currentNode = pq[1].top().second;
-
-        /// first element of pair denotes the distance
         currentDist = pq[1].top().first;
-
         pq[1].pop();
 
-        /// for all the reachable vertex from the currently exploring vertex
-        /// we will try to minimize the distance
         for (std::pair<int, int> edge : (*adj2)[currentNode]) {
-            /// minimizing distances
             if (currentDist + edge.second < dist[1][edge.first]) {
                 dist[1][edge.first] = currentDist + edge.second;
                 pq[1].push(std::make_pair(dist[1][edge.first], edge.first));
             }
         }
-        // store the processed node/ vertex
         workset.push_back(currentNode);
 
-        /// check if currentNode has already been visited
+        // 相遇判定
         if (visited[currentNode] == 1) {
             return Shortest_Path_Distance(workset, dist);
         }
         visited[currentNode] = true;
     }
-    return -1;
+    return -1; // 无法到达
 }
 }  // namespace bidirectional_dijkstra
 }  // namespace graph
 
 /**
- * @brief Function to test the
- * provided algorithm above
- * @returns void
+ * @brief 单元自测用例
  */
 static void tests() {
     std::cout << "Initiatinig Predefined Tests..." << std::endl;
@@ -243,11 +221,10 @@ static void tests() {
 }
 
 /**
- * @brief Main function
- * @returns 0 on exit
+ * @brief 主函数
  */
 int main() {
-    tests();  // running predefined tests
+    tests();  // 运行预定义的单元测试
     uint64_t vertices = uint64_t();
     uint64_t edges = uint64_t();
     std::cout << "Enter the number of vertices : ";
