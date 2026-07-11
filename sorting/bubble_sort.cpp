@@ -1,84 +1,62 @@
 /**
  * @file
- * @brief Bubble sort algorithm
+ * @brief Implementation of [Bubble Sort](https://en.wikipedia.org/wiki/Bubble_sort) algorithm (优化版冒泡排序算法实现)
  *
  * @details
- * Bubble sort algorithm is the bubble sorting algorithm. The most important reason
- * for calling the bubble is that the largest number is thrown at the end of this
- * algorithm. This is all about the logic. In each iteration, the largest number is
- * expired and when iterations are completed, the sorting takes place.
- * 
- * What is Swap?
- * 
- * Swap in the software means that two variables are displaced.
- * An additional variable is required for this operation. x = 5, y = 10.
- * We want x = 10, y = 5. Here we create the most variable to do it.
- * 
- * ```cpp
- * int z;
- * z = x;
- * x = y;
- * y = z;
- * ```
- * 
- * The above process is a typical displacement process.
- * When x assigns the value to x, the old value of x is lost.
- * That's why we created a variable z to create the first value of the value of x,
- * and finally, we have assigned to y.
- * 
- * ## Bubble Sort Algorithm Analysis (Best Case - Worst Case - Average Case)
- * 
- * ### Best Case
- * Bubble Sort Best Case Performance. \f$O(n)\f$. However, you
- * can't get the best status in the code we shared above. This happens on the
- * optimized bubble sort algorithm. It's right down there.
- * 
- * ### Worst Case
- * Bubble Sort Worst Case Performance is \f$O(n^{2})\f$. Why is that? Because if you
- * remember Big O Notation, we were calculating the complexity of the algorithms in
- * the nested loops. The \f$n * (n - 1)\f$ product gives us \f$O(n^{2})\f$ performance. In the
- * worst case all the steps of the cycle will occur.
- * 
- * ### Average Case
- * Bubble Sort is not an optimal algorithm. In average, \f$O(n^{2})\f$ performance is taken. 
- * 
+ * 冒泡排序（Bubble Sort）是一种简单的排序算法。它重复地走访过要排序的数列，
+ * 一次比较两个元素，如果它们的顺序错误就把它们交换过来。
+ * 走访数列的工作是重复地进行直到没有再需要交换，也就是说该数列已经排序完成。
+ * 元素就像气泡一样，最大（或最小）的元素会逐步“浮”到数列的末尾。
+ *
+ * ### 优化策略（使用 swap_check）
+ * - 引入 `swap_check` 布尔标记。如果在某趟遍历中**没有发生任何交换**，
+ *   说明整个数组已经处于完全有序状态，算法可以**提前终止**，无需继续执行剩余的循环趟数。
+ * - 这一优化使得算法在**最有利情况（输入数组本身已是有序的）**下的时间复杂度降为 $O(N)$。
+ *
+ * 时间复杂度:
+ *   - 最好情况: $O(N)$ (已排序数组)
+ *   - 最坏情况: $O(N^2)$ (逆序数组)
+ *   - 平均情况: $O(N^2)$
+ * 空间复杂度: $O(1)$
+ *
  * @author [Deepak](https://github.com/Deepak-j-p)
  * @author [Nguyen Phuc Chuong](https://github.com/hollowcrust)
  */
 
-#include <algorithm> /// for std::is_sorted
-#include <cassert>   /// for assert
-#include <iostream>  /// for IO implementations
-#include <string>    /// for std::string
-#include <utility>   /// for std::pair, std::swap
-#include <vector>    /// for std::vector, std::vector::push_back, std::vector::size
+#include <algorithm> /// 用于 std::is_sorted
+#include <cassert>   /// 用于 assert 断言
+#include <iostream>  /// 用于输入输出
+#include <string>    /// 用于 std::string
+#include <utility>   /// 用于 std::pair, std::swap
+#include <vector>    /// 用于 std::vector
 
 /**
  * @namespace sorting
- * @brief Sorting algorithms
+ * @brief 排序算法命名空间
  */
 namespace sorting {
 /**
  * @namespace bubble_sort
- * @brief Bubble sort algorithm
+ * @brief 冒泡排序算法命名空间
  */
 namespace bubble_sort {
 /**
- * @brief Bubble sort algorithm
- * @param array An array to be sorted
- * @return The array sorted in ascending order
+ * @brief 优化版冒泡排序主函数
+ * @tparam T 数组元素模板类型
+ * @param array 待排序数组的引用
+ * @returns 排序好（升序）的数组
  */
 template <typename T> 
 std::vector<T> bubble_sort(std::vector<T>& array) {
-  // swap_check flag to terminate the function early
-  // if there is no swap occurs in one iteration.
+  // swap_check 标记用来检测单趟内是否发生了交换，若无交换则直接提前终止
   bool swap_check = true;
   int size = array.size();
+  
   for (int i = 0; (i < size) && (swap_check); i++) {
-    swap_check = false;
+    swap_check = false; // 初始设为无交换
     for (int j = 0; j < size - 1 - i; j++) {
       if (array[j] > array[j + 1]) {
-        swap_check = true;
+        swap_check = true; // 发生交换，更新标记
         std::swap(array[j], array[j + 1]);
       }
     }
@@ -90,28 +68,34 @@ std::vector<T> bubble_sort(std::vector<T>& array) {
 } // namespace sorting
 
 /**
- * @brief Self-test implementation
- * @return void
+ * @brief 单元自测用例
  */
 static void test() {
+  // 测试 1
   std::vector<int> vec_1 = {3, 1, -9, 0};
   std::vector<int> sorted_1 = sorting::bubble_sort::bubble_sort(vec_1);
 
+  // 测试 2: 只有一个元素
   std::vector<int> vec_2 = {3};
   std::vector<int> sorted_2 = sorting::bubble_sort::bubble_sort(vec_2);
 
+  // 测试 3: 全部相同的元素
   std::vector<int> vec_3 = {10, 10, 10, 10, 10};
   std::vector<int> sorted_3 = sorting::bubble_sort::bubble_sort(vec_3);
 
+  // 测试 4: 浮点数类型
   std::vector<float> vec_4 = {1234, -273.1, 23, 150, 1234, 1555.55, -2000};
   std::vector<float> sorted_4 = sorting::bubble_sort::bubble_sort(vec_4);
 
+  // 测试 5: 字符类型
   std::vector<char> vec_5 = {'z', 'Z', 'a', 'B', ' ', 'c', 'a'};
   std::vector<char> sorted_5 = sorting::bubble_sort::bubble_sort(vec_5);
 
+  // 测试 6: 字符串类型
   std::vector<std::string> vec_6 = {"Hello", "hello", "Helo", "Hi", "hehe"};
   std::vector<std::string> sorted_6 = sorting::bubble_sort::bubble_sort(vec_6);
 
+  // 测试 7: 对组类型 (std::pair)
   std::vector<std::pair<int, char>> vec_7 = {{10, 'c'}, {2, 'z'}, {10, 'a'}, {0, 'b'}, {-1, 'z'}};
   std::vector<std::pair<int, char>> sorted_7 = sorting::bubble_sort::bubble_sort(vec_7);
 
@@ -125,10 +109,9 @@ static void test() {
 }
 
 /**
- * @brief Main function
- * @return 0 on exit
+ * @brief 主函数
  */
 int main() {
-  test();
+  test(); // 运行自测
   return 0;
 }

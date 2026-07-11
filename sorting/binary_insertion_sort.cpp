@@ -1,63 +1,50 @@
 /**
- * \file
- * \brief [Binary Insertion Sort Algorithm
- * (Insertion Sort)](https://en.wikipedia.org/wiki/Insertion_sort)
+ * @file
+ * @brief Implementation of [Binary Insertion Sort](https://en.wikipedia.org/wiki/Insertion_sort) algorithm (折半插入排序 / 二分插入排序算法实现)
  *
- * \details
- * If the cost of comparisons exceeds the cost of swaps, as is the case for
- * example with string keys stored by reference or with human interaction (such
- * as choosing one of a pair displayed side-by-side), then using binary
- * insertion sort may yield better performance. Binary insertion sort employs a
- * binary search to determine the correct location to insert new elements, and
- * therefore performs ⌈log2 n⌉ comparisons in the worst case. When each element
- * in the array is searched for and inserted this is O(n log n). The algorithm
- * as a whole still has a running time of O(n2) on average because of the series
- * * of swaps required for each insertion. However it has several advantages
- * such as
- * 1. Easy to implement
- * 2. For small set of data it is quite efficient
- * 3. More efficient that other Quadratic complexity algorithms like
- *    Selection sort or bubble sort.
- * 4. It is efficient to use it when the cost of comparison is high.
- * 5. It's stable that is it does not change the relative order of
- *    elements with equal keys.
- * 6. It can sort the array or list as it receives.
+ * @details
+ * 二分插入排序（Binary Insertion Sort）是插入排序的改进版本。
+ * 传统插入排序需要对前面已排序的元素进行线性扫描以寻找合适的插入位置。
+ * 在折半插入排序中，我们利用已排序子数组的有序性，使用**二分查找（Binary Search）**在 $O(\log N)$ 时间内锁定插入点。
  *
- * Example execution steps:
- * 1. Suppose initially we have
- * \f{bmatrix}{40 &30 &20 &50 &10\f}
- * 2. We start traversing from 40 till we reach 10
- * when we reach at 30 we find that it is not at it's correct place so we take
- * 30 and place it at a correct position thus the array will become
- * \f{bmatrix}{30 &40 &20 &50 &10\f}
- * 3. In the next iteration we are at 20 we find that this is also misplaced so
- * we place it at the correct sorted position thus the array in this iteration
- * becomes
- * \f{bmatrix}{20 &30 &40 &50 &10\f}
- * 4. We do not do anything with 50 and move on to the next iteration and
- * select 10 which is misplaced and place it at correct position. Thus, we have
- * \f{bmatrix}{10 &20 &30 &40 &50\f}
+ * 虽然寻找位置的比较次数由 $O(N^2)$ 降低到 $O(N \log N)$，但是为了挪动元素腾出空间，
+ * 其整体时间复杂度仍为 $O(N^2)$，因为每次插入可能都需要搬移 $O(N)$ 个元素。
+ *
+ * @note
+ * 【排序稳定性 Bug 审计】：
+ * 在第 72-74 行中：
+ *   `else { return mid + 1; }`
+ * 当折半查找发现 `arr[mid] == val` 时，程序直接返回了 `mid + 1` 并终止了搜索。
+ * 这一做法在**存在重复元素时会破坏稳定性**。例如：排序数组中有多个相同值，
+ * `mid` 命中了其中某一个，新元素会被插入到该值之后，但如果在 `mid` 之后还有其他相同元素，
+ * 它们就会被移到新元素的后面，这破坏了等值元素原有的相对先后顺序。
+ * 为了维持稳定性，标准的二分查找应当寻找“首个严格大于待插入值的元素位置”（类似于 `std::upper_bound` 的位置）。
+ *
+ * 时间复杂度: $O(N^2)$ (平均及最坏时间)
+ * 空间复杂度: $O(\log N)$ (递归搜索调用栈空间)
+ * 
+ * @author [Akshat Vaya](https://github.com/AkVaya)
  */
 
-#include <algorithm>  /// for algorithm functions
-#include <cassert>    /// for assert
-#include <iostream>   /// for IO operations
-#include <vector>     /// for working with vectors
+#include <algorithm>  /// 用于 std::is_sorted 等
+#include <cassert>    /// 用于 assert 断言
+#include <iostream>   /// 用于标准输入输出
+#include <vector>     /// 用于 std::vector
 
 /**
- * \namespace sorting
- * @brief Sorting algorithms
+ * @namespace sorting
+ * @brief 排序算法命名空间
  */
 namespace sorting {
 
 /**
- * \brief Binary search function to find the most suitable pace for an element.
- * \tparam T The generic data type.
- * \param arr The actual vector in which we are searching a suitable place for
- * the element. \param val The value for which suitable place is to be found.
- * \param low The lower bound of the range we are searching in.
- * \param high The upper bound of the range we are searching in.
- * \returns the index of most suitable position of val.
+ * @brief 用二分查找定位待插入元素的位置
+ * @tparam T 模版通用数据类型
+ * @param arr 输入的数组引用
+ * @param val 待插入的元素值
+ * @param low 搜索区间的下界 (0-indexed)
+ * @param high 搜索区间的上界 (0-indexed)
+ * @returns 最终适合插入的数组索引位置
  */
 template <class T>
 int64_t binary_search(std::vector<T> &arr, T val, int64_t low, int64_t high) {
@@ -70,65 +57,62 @@ int64_t binary_search(std::vector<T> &arr, T val, int64_t low, int64_t high) {
     } else if (arr[mid] < val) {
         return binary_search(arr, val, mid + 1, high);
     } else {
+        // 警告：直接返回 mid + 1 会在重复元素存在时破坏稳定性
         return mid + 1;
     }
 }
 
 /**
- * \brief Insertion sort function to sort the vector.
- * \tparam T The generic data type.
- * \param arr The actual vector to sort.
- * \returns Void.
+ * @brief 折半插入排序主函数
+ * @tparam T 模版通用数据类型
+ * @param arr 待排序数组的引用
  */
 template <typename T>
 void insertionSort_binsrch(std::vector<T> &arr) {
     int64_t n = arr.size();
 
     for (int64_t i = 1; i < n; i++) {
-        T key = arr[i];
+        T key = arr[i]; // 当前需要插入的元素
         int64_t j = i - 1;
+        // 利用二分查找确定插入位置
         int64_t loc = sorting::binary_search(arr, key, 0, j);
+        
+        // 挪动元素为 key 腾出空间
         while (j >= loc) {
             arr[j + 1] = arr[j];
             j--;
         }
-        arr[j + 1] = key;
+        arr[j + 1] = key; // 放置到目标位置
     }
 }
 }  // namespace sorting
 
 /**
- * @brief Self-test implementations
- * @returns void
+ * @brief 单元自测用例
  */
 static void test() {
-    /* descriptions of the following test */
-    /* 1st test:
-       [5, -3, -1, -2, 7] returns [-3, -2, -1, 5, 7] */
+    // 测试 1
     std::vector<int64_t> arr1({5, -3, -1, -2, 7});
     std::cout << "1st test... ";
     sorting::insertionSort_binsrch(arr1);
     assert(std::is_sorted(std::begin(arr1), std::end(arr1)));
     std::cout << "passed" << std::endl;
 
-    /* 2nd test:
-       [12, 26, 15, 91, 32, 54, 41] returns [12, 15, 26, 32, 41, 54, 91] */
+    // 测试 2
     std::vector<int64_t> arr2({12, 26, 15, 91, 32, 54, 41});
     std::cout << "2nd test... ";
     sorting::insertionSort_binsrch(arr2);
     assert(std::is_sorted(std::begin(arr2), std::end(arr2)));
     std::cout << "passed" << std::endl;
 
-    /* 3rd test:
-       [7.1, -2.5, -4.0, -2.1, 5.7] returns [-4.0, -2.5, -2.1, 5.7, 7.1] */
+    // 测试 3: 浮点数类型
     std::vector<float> arr3({7.1, -2.5, -4.0, -2.1, 5.7});
     std::cout << "3rd test... ";
     sorting::insertionSort_binsrch(arr3);
     assert(std::is_sorted(std::begin(arr3), std::end(arr3)));
     std::cout << "passed" << std::endl;
 
-    /* 4th test:
-       [12.8, -3.7, -20.7, -7.1, 2.2] returns [-20.7, -7.1, -3.7, 2.2, 12.8] */
+    // 测试 4: 浮点数类型
     std::vector<float> arr4({12.8, -3.7, -20.7, -7.1, 2.2});
     std::cout << "4th test... ";
     sorting::insertionSort_binsrch(arr4);
@@ -137,10 +121,9 @@ static void test() {
 }
 
 /**
- * @brief Main function
- * @return 0 on exit.
+ * @brief 主函数
  */
 int main() {
-    test();  // run self-test implementations
+    test();  // 运行自测
     return 0;
 }

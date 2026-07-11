@@ -1,60 +1,64 @@
 /**
  * @file
- * @brief Implementation of [Bogosort algorithm](https://en.wikipedia.org/wiki/Bogosort)
+ * @brief Implementation of [Bogosort algorithm](https://en.wikipedia.org/wiki/Bogosort) (猴子排序 / 愚蠢排序算法实现)
  *
  * @details
- *      In computer science, bogosort (also known as permutation sort, stupid sort, slowsort, 
- *      shotgun sort, random sort, monkey sort, bobosort or shuffle sort) is a highly inefficient 
- *      sorting algorithm based on the generate and test paradigm. Two versions of this algorithm 
- *      exist: a deterministic version that enumerates all permutations until it hits a sorted one,
- *      and a randomized version that randomly permutes its input.Randomized version is implemented here. 
+ * 猴子排序（Bogosort，又称 stupid sort, random sort, monkey sort, shuffle sort 等）是一种极度低效的排序算法。
+ * 它采用“生成与测试”（generate and test）的策略：
+ * 1. 检查当前数组是否有序。
+ * 2. 如果无序，随机打乱（Shuffle）整个数组，然后再重新检查。
+ * 3. 循环往复，直到运气爆发打乱出一个完全有序的数组为止。
  *
- * ### Algorithm
- * Shuffle the array untill array is sorted.
+ * ### 性能警告
+ * - 平均时间复杂度: $O(N \cdot N!)$。
+ * - 最坏时间复杂度: 无界（Infinite），理论上有概率永远无法排好序。
+ * - 因此，该算法仅具有理论教学和娱乐意义，**绝对不能用于任何实际开发**，且测试数组大小通常限制在 $N \le 10$ 以内（否则运行时间将以年为单位计算）。
  *
  * @author [Deep Raval](https://github.com/imdeep2905)
  */
+
 #include <iostream>
 #include <algorithm>
 #include <array>
 #include <cassert>
 #include <random>
 
-
 /**
  * @namespace sorting
- * @brief Sorting algorithms
+ * @brief 排序算法命名空间
  */
 namespace sorting {
 /**
- * Function to shuffle the elements of an array. (for reference)
- * @tparam T typename of the array
- * @tparam N length of array
- * @param arr array to shuffle
- * @returns new array with elements shuffled from a given array
+ * @brief 自定义打乱函数（未被核心排序调用，仅作算法思路参考）
+ * @tparam T 数组元素类型
+ * @tparam N 数组长度
+ * @param arr 传入的数组副本
+ * @returns 打乱后的新数组
  */
 template <typename T, size_t N>
 std::array <T, N> shuffle (std::array <T, N> arr) {
-    for (int i = 0; i < N; i++) {
-        // Swaps i'th  index with random index (less than array size)
+    for (size_t i = 0; i < N; i++) {
+        // 随机交换当前元素与任一元素位置
         std::swap(arr[i], arr[std::rand() % N]);
     }
     return arr;
 }
+
 /**
- * Implement randomized Bogosort algorithm and sort the elements of a given array.
- * @tparam T typename of the array
- * @tparam N length of array
- * @param arr array to sort
- * @returns new array with elements sorted from a given array
+ * @brief 随机猴子排序主函数
+ * @tparam T 数组元素类型
+ * @tparam N 数组长度
+ * @param arr 待排序数组
+ * @returns 排序完毕的新数组
  */
 template <typename T, size_t N>
 std::array <T, N> randomized_bogosort (std::array <T, N> arr) {
-    // Untill array is not sorted
     std::random_device random_device;
-    std::mt19937 generator(random_device());
+    std::mt19937 generator(random_device()); // 使用真随机种子初始化梅森旋转算法生成器
+    
+    // 只要数组尚未排好序，就不断随机打乱
     while (!std::is_sorted(arr.begin(), arr.end())) {
-        std::shuffle(arr.begin(), arr.end(), generator);// Shuffle the array
+        std::shuffle(arr.begin(), arr.end(), generator); // 随机洗牌
     }
     return arr;
 }
@@ -62,10 +66,7 @@ std::array <T, N> randomized_bogosort (std::array <T, N> arr) {
 }  // namespace sorting
 
 /**
- * Function to display array on screen 
- * @tparam T typename of the array
- * @tparam N length of array
- * @param arr array to display
+ * @brief 打印数组内容
  */
 template <typename T, size_t N>
 void show_array (const std::array <T, N> &arr) {
@@ -76,10 +77,10 @@ void show_array (const std::array <T, N> &arr) {
 }
 
 /**
- * Function to test above algorithm
+ * @brief 单元自测用例
  */
 void test() {
-    // Test 1
+    // 测试 1
     std::array <int, 5> arr1;
     for (int &x : arr1) {
         x = std::rand() % 100;
@@ -90,7 +91,8 @@ void test() {
     std::cout << "Sorted Array : ";
     show_array(arr1);
     assert(std::is_sorted(arr1.begin(), arr1.end()));
-    // Test 2
+
+    // 测试 2
     std::array <int, 5> arr2;
     for (int &x : arr2) {
         x = std::rand() % 100;
@@ -103,16 +105,19 @@ void test() {
     assert(std::is_sorted(arr2.begin(), arr2.end()));
 }
 
-/** Driver Code */
+/**
+ * @brief 主函数
+ */
 int main() {
-    // Testing
-    test();
-    // Example Usage
-    std::array <int, 5> arr = {3, 7, 10, 4, 1}; // Defining array which we want to sort
+    test(); // 运行自测
+
+    std::array <int, 5> arr = {3, 7, 10, 4, 1}; 
     std::cout << "Original Array : ";
     show_array(arr);
-    arr = sorting::randomized_bogosort(arr); // Callling bogo sort on it
+    
+    arr = sorting::randomized_bogosort(arr); 
     std::cout << "Sorted Array : ";
-    show_array(arr); // Printing sorted array
+    show_array(arr); 
+    
     return 0;
 }
