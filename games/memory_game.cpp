@@ -1,100 +1,88 @@
 /**
  * @file
- * @brief A simple [Memory Game](https://en.wikipedia.org/wiki/Matching_game)
- * with **3 different sizes** and multiple letters.
+ * @brief A simple [Memory Game](https://en.wikipedia.org/wiki/Matching_game) (控制台卡片记忆配对小游戏)
  * @details
- * The game consists on finding **the pair** of all the given letters depending
- * on the table size. Once all of the instances are all found, the game will end
- * and will ask you if you'd like to play again or not.
- *
- * It provides **3 different sizes** available that the user can choose (4x2,
- * 5x2, 7x2). 7x2 being the biggest table size and hardest mode. The bigger the
- * size, **the more letters are available**.
+ * 记忆翻牌配对游戏：
+ * 1. 游戏提供了 3 种不同尺寸的关卡：4x2 (8张卡)、5x2 (10张卡)、7x2 (14张卡)。
+ * 2. 系统会在后台随机打乱字母对（如 'A'、'E'、'Z'、'D' 等），玩家需要逐次输入两个位置的索引进行翻牌。
+ * 3. 若翻开的两张卡片字母相同，则保持翻开状态；若不同，则在短暂停留后重新盖上。
+ * 4. 当全部卡片完成配对后，提示通关并询问是否重新开始。
  *
  * @author [David Leal](https://github.com/Panquesito7)
  */
 
-#include <algorithm>  /// for std::shuffle()
-#include <cstdlib>    /// for std::srand()
-#include <ctime>      /// for std::time()
-#include <iostream>   /// for IO operations
-#include <random>     /// for std::mt19937
-#include <vector>     /// for std::vector
+#include <algorithm>  /// 用于 std::shuffle()
+#include <cstdlib>    /// 用于 std::srand()
+#include <ctime>      /// 用于 std::time()
+#include <iostream>   /// 用于标准输入输出
+#include <random>     /// 用于 std::mt19937 生成器
+#include <vector>     /// 用于 std::vector 容器
 
-// `Sleep` is only available in Windows in milliseconds.
-// However, on Unix/Linux systems it is `sleep`, in seconds.
+// 根据操作系统编译环境，实现跨平台的休眠延时函数 SLEEP
 #ifdef _WIN32
-#include <Windows.h>  /// for Sleep()
+#include <Windows.h>  /// 包含 Windows.h 用于 Sleep()
 template <typename T>
 constexpr typename std::enable_if<std::is_integral<T>::value, void>::type SLEEP(
     T milliseconds) {
     Sleep(milliseconds * 1000);
 }
 #else
-#include <unistd.h>  /// for sleep()
+#include <unistd.h>  /// 包含 unistd.h 用于 sleep()
 template <typename T>
 constexpr T SLEEP(T seconds) {
     return sleep(seconds);
 }
 #endif
 
-/**
- * @namespace
- * @brief (Mini)game implementations.
- */
 namespace games {
 /**
- * @namespace
- * @brief Functions for the [Memory
- * Game](https://en.wikipedia.org/wiki/Matching_game) implementation
+ * @namespace memory_game
+ * @brief 卡片记忆配对游戏逻辑命名空间
  */
 namespace memory_game {
 /**
- * @brief Utility function to verify if the given input is a number or not.
- * This is very useful to prevent the program being stuck in a loop.
- * @tparam T The type of the input
- * @param input The input to check.
- * @returns false if the input IS empty or if it contains a non-digit character
- * @returns true if the input is NOT empty and if it contains only digit
- * characters
+ * @brief 输入流合法性校验函数
+ * @details 当检测到输入非法（例如要求输入数字却输入了字母），重置输入流状态以防止死循环。
+ * @tparam T 输入数据类型
+ * @param input 输入变量
+ * @returns `false` 输入失败；`true` 输入成功合法
  */
 template <typename T>
 bool is_number(const T &input) {
     if (std::cin.fail()) {
         std::cin.clear();
         std::cin.ignore(256, '\n');
-
         return false;
     }
-
     return true;
 }
 
 /**
- * @brief Initializes the table with the letters.
- * @tparam T The type of the table.
- * @param table The table to initialize.
- * @returns void
+ * @brief 初始化游戏卡片矩阵
+ * @details 根据卡片总量（size）选择对应的字母集，双份推入，打乱后填充到卡片表中。
+ * @tparam T 元素类型
+ * @param table 卡片矩阵的 vector 指针
  */
 template <typename T>
 void init(std::vector<T> *table) {
     std::vector<char> letters(7);
 
-    // Decrease / increase the number of letters depending on the size.
-    if ((*table).size() == 10) {  // 5x2
+    // 根据不同表格尺寸设定不同的记忆卡片组合
+    if ((*table).size() == 10) {  // 5x2 模式
         letters = {'A', 'E', 'Z', 'P', 'D'};
-    } else if ((*table).size() == 8) {  // 4x2
+    } else if ((*table).size() == 8) {  // 4x2 模式
         letters = {'A', 'E', 'Z', 'D'};
-    } else if ((*table).size() == 14) {  // 7x2
+    } else if ((*table).size() == 14) {  // 7x2 模式
         letters = {'A', 'E', 'Z', 'P', 'D', 'B', 'M'};
     }
 
     std::vector<char> pairs;
     for (char letter : letters) {
-        pairs.push_back(letter);
+        pairs.push_back(letter); // 每种卡片推入两张以组成配对
         pairs.push_back(letter);
     }
 
+    // 采用洗牌算法打乱卡片顺序
     std::shuffle(pairs.begin(), pairs.end(),
                  std::mt19937(std::random_device()()));
 
@@ -103,7 +91,6 @@ void init(std::vector<T> *table) {
     }
 
     std::cout << "All available types are: ";
-
     for (int i = 0; i < letters.size(); i++) {
         if (i == letters.size() - 1) {
             std::cout << "and " << letters[i] << ".\n\n";
@@ -114,10 +101,8 @@ void init(std::vector<T> *table) {
 }
 
 /**
- * @brief Utility function to print the table.
- * @tparam T The type of the table.
- * @param table The table to print.
- * @returns void
+ * @brief 打印当前卡片显示矩阵到控制台上
+ * @param table 存储当前卡片状态的 vector
  */
 template <typename T>
 void print_table(const std::vector<T> &table) {
@@ -126,9 +111,8 @@ void print_table(const std::vector<T> &table) {
 
     for (int i = 0; i < table.size(); i++) {
         table_print[i] = ' ';
-
         if (table[i] != 0) {
-            table_print[i] = table[i];
+            table_print[i] = table[i]; // 已翻开或配对成功的展示其值，未配对的隐藏
         }
     }
 
@@ -136,26 +120,20 @@ void print_table(const std::vector<T> &table) {
         if (i % 5 == 0 && i != 0) {
             std::cout << "\n| ";
         }
-
         std::cout << table_print[i] << " | ";
     }
 }
 
-// Prototype function. This is needed as `ask_data` calls `reset_data`, and
-// `reset_data` calls `ask_data`.
+// 函数前置声明
 template <typename T>
 void reset_data(const std::vector<T> &, int *, int *, int *);
 
 /**
- * @brief Function that asks the user for their
- * input in the table they previously chose.
- * @tparam T The type of the table.
- * @param table The table that's used to get the user's input and data.
- * @param answer The user's answer.
- * @param old_answer The user's previous answer.
- * @param memory_count A counter to check if the user has already answered two
- * values.
- * @returns void
+ * @brief 请求用户输入要翻开的卡片索引并进行有效性校验
+ * @param table 当前游戏状态卡片表
+ * @param answer 当前翻开卡片的索引
+ * @param old_answer 上一次翻开卡片的索引
+ * @param memory_count 翻牌计数器（一次翻两张）
  */
 template <typename T>
 void ask_data(const std::vector<T> &table, int *answer, int *old_answer,
@@ -166,29 +144,27 @@ void ask_data(const std::vector<T> &table, int *answer, int *old_answer,
     std::cout << "\n\nType your response here (number index):\n";
     std::cin >> (*answer);
 
+    // 输入格式校验
     if (!is_number((*answer))) {
         std::cout << "\nYou must enter a valid number.\n\n";
         reset_data(table, answer, old_answer, memory_count);
     }
 
-    // Increase the memory count, which will be later on used for checking if
-    // the user has already answered two values.
-    (*memory_count)++;
+    (*memory_count)++; // 翻开次数加 1
 
+    // 索引越界校验
     if (((*answer) > table.size()) || ((*answer) < 1)) {
-        std::cout << "\nYou can't check a value that doesn't exist (or an "
-                     "invalid number).\n\n";
+        std::cout << "\nYou can't check a value that doesn't exist (or an invalid number).\n\n";
         reset_data(table, answer, old_answer, memory_count);
     }
 
+    // 重复选择同一张卡片校验
     if ((*old_answer) == (*answer)) {
         std::cout << "\nYou can't check the same value twice.\n\n";
         reset_data(table, answer, old_answer, memory_count);
     }
 
-    // If two matches are answered already, but the user checkes a non-answered
-    // and an answered value, the program will mark it as no match, however, we
-    // must not allow the user to check the same value twice.
+    // 重复翻开已经配对成功的卡片校验
     if ((table[(*answer) - 1] != 0) &&
         ((table[(*old_answer)] == 0) || (table[(*old_answer)] != 0))) {
         std::cout << "\nYou can't check the same value twice.\n\n";
@@ -197,59 +173,45 @@ void ask_data(const std::vector<T> &table, int *answer, int *old_answer,
 }
 
 /**
- * @brief Utility function that resets the data if the user enters an invalid
- * value.
- * @tparam T The type of the table.
- * @param table The table that will be used to call `ask_data()`.
- * @param answer The user's answer.
- * @param old_answer The user's previous answer.
- * @param memory_count A counter to check if the user has already answered two
- * values.
- * @returns void
+ * @brief 当发生错误时重置输入状态并重新输入
  */
 template <typename T>
 void reset_data(const std::vector<T> &table, int *answer, int *old_answer,
                 int *memory_count) {
     (*answer) = (*old_answer);
     (*memory_count)--;
-
     ask_data(table, answer, old_answer, memory_count);
 }
 
 /**
- * @brief Checks if the two values given by the user match.
- * @tparam T The type of the table.
- * @param table_empty The table with no values, slowly assigned from `table`
- * depending on the user's input.
- * @param table The table with the original values.
- * @param answer The user's answer.
- * @param first_time A boolean to check if the user has already answered a
- * value.
- * @param old_answer The user's previous answer.
- * @param memory_count A counter to check if the user has already answered two
- * values.
- * @returns true IF the values given by the user match
- * @returns false if the values given by the user do NOT match
+ * @brief 判断翻开的两张卡片是否匹配
+ * @param table 原始存储全字母排列的卡片表
+ * @param table_empty 当前游戏可视化展示表（已匹配完的卡片显示字母）
+ * @param answer 当前翻开卡片的位置索引
+ * @param first_time 翻牌阶段标志位，若为第一个卡片则等待第二张；若为第二张则进行匹配校验
+ * @param old_answer 第一张翻开卡片的位置索引
+ * @param memory_count 翻牌计数器
+ * @returns `true` 匹配成功或处于第一张翻牌阶段；`false` 两张卡不匹配
  */
 template <typename T>
 bool match(const std::vector<T> &table, std::vector<T> *table_empty,
            const int &answer, bool *first_time, int *old_answer,
            int *memory_count) {
     if ((*first_time) == true) {
-        return true;
+        return true; // 翻开第一张，直接保留显示
     }
 
-    // Search across the whole table and if the two values match, keep results,
-    // otherwise, hide 'em up.
+    // 翻开第二张，进行匹配比对
     for (int i = 0; i < table.size() + 1; i++) {
         if (i == answer) {
             if (table[i - 1] == table[(*old_answer) - 1]) {
+                // 两张牌的值相同 -> 配对成功
                 (*first_time) = true;
                 (*memory_count) = 0;
-
                 (*old_answer) = 0;
                 return true;
             } else {
+                // 两张牌的值不相同 -> 配对失败，清除这两张卡片的显示
                 std::cout << "\nNo match (value was " << table[i - 1]
                           << ", index is " << i << ").\n\n";
 
@@ -258,7 +220,6 @@ bool match(const std::vector<T> &table, std::vector<T> *table_empty,
 
                 (*first_time) = true;
                 (*memory_count) = 0;
-
                 (*old_answer) = 0;
                 return false;
             }
@@ -269,34 +230,18 @@ bool match(const std::vector<T> &table, std::vector<T> *table_empty,
 }
 
 /**
- * @brief Function to assign the results to the table.
- *
- * Also checkes if the user has answered all the values already, as well as
- * verify if the user made a match or not.
- * @tparam T The type of the tables.
- * @param table_empty The table with no values, slowly assigned from `table`
- * depending on the user's input.
- * @param table The table with the original values.
- * @param answer The user's answer.
- * @param first_time A boolean to check if the user has already answered a
- * value.
- * @param old_answer The user's previous answer.
- * @param memory_count A counter to check if the user has already answered two
- * values.
- * @returns void
+ * @brief 记录分配翻卡结果并递归控制游戏进程
  */
 template <typename T>
 void assign_results(std::vector<T> *table_empty, std::vector<T> *table,
                     int *answer, bool *first_time, int *old_answer,
                     int *memory_count) {
-    // Search through the entire table and if the answer matches the index, show
-    // the value. If it doesn't match, hide both the values. Don't forget to
-    // keep older values already answered.
+    
     for (int i = 0; i < (*table).size() + 1; i++) {
         if (i == (*answer)) {
             if (match((*table), table_empty, (*answer), first_time, old_answer,
                       memory_count) == true) {
-                (*table_empty)[i - 1] = (*table)[i - 1];
+                (*table_empty)[i - 1] = (*table)[i - 1]; // 记录正确卡片展示
                 (*first_time) = true;
             }
         }
@@ -309,43 +254,30 @@ void assign_results(std::vector<T> *table_empty, std::vector<T> *table,
 
     char try_again = 'n';
 
-    // Has the user finished the game? Use a `for` loop, and if the table is
-    // full, ask the user if he wants to play again.
+    // 检查游戏是否已经全部通关（table_empty 表被填满）
     for (int i = 0; i < (*table).size() + 1; i++) {
         if ((*table_empty)[i] == 0) {
-            break;
+            break; // 仍有未配对项，跳出循环，继续游戏
         } else if (i == (*table).size() - 1) {
             print_table((*table));
 
-            std::cout << "\n\nYou won. Congratulations! Do you want to play "
-                         "again? (y/n)\n";
-            std::cout
-                << "Size " << (*table).size()
-                << " will be used. This can be changed by re-running the game.";
+            std::cout << "\n\nYou won. Congratulations! Do you want to play again? (y/n)\n";
             std::cin >> try_again;
             if (try_again == 'y') {
-                // This is needed when checking if the user has two matches
-                // already.
+                // 重新开始游戏，清空桌牌数据并重新初始化
                 for (int i = 0; i < (*table_empty).size(); i++) {
                     (*table_empty)[i] = 0;
                 }
-
                 init(table);
-            } else if (try_again == 'n') {
+            } else {
                 std::cout << "\nThanks for playing the game!\n";
                 SLEEP(3);
-
-                exit(0);
-            } else {
-                std::cout << "\nInvalid input (exitting...).\n";
-                SLEEP(3);
-
                 exit(0);
             }
         }
     }
 
-    // Ask data again.
+    // 未完成，继续递归读入输入并分配比对
     ask_data((*table_empty), answer, old_answer, memory_count);
     assign_results(table_empty, table, answer, first_time, old_answer,
                    memory_count);
@@ -354,26 +286,24 @@ void assign_results(std::vector<T> *table_empty, std::vector<T> *table,
 }  // namespace games
 
 /**
- * @brief Main function
- * @returns 0 on exit
+ * @brief 主函数
+ * @returns 0
  */
 int main() {
-    // Start randomizer. This changes the values every time.
-    std::srand(std::time(nullptr));
+    std::srand(std::time(nullptr)); // 随机数种子初始化
 
-    int size = 0;       ///< Size of the table.
-    int selection = 0;  ///< Selection of the size (4x2, 5x2, 7x2).
+    int size = 0;
+    int selection = 0;
 
-    int response = 0;    ///< The answer (number index) that the user chose.
-    int old_answer = 0;  ///< Previous answer (number index).
+    int response = 0;
+    int old_answer = 0;
 
-    int memory_count =
-        0;  ///< Counter to check if the user has already answered two values.
-    bool first_time = true;  ///< Whether the user has answered 1 value or not
-                             ///< (previous answered values do not count).
+    int memory_count = 0;
+    bool first_time = true;
 
     std::cout << "\tMEMORY GAME\n";
 
+    // 读入并校验玩家选择的表格尺寸
     do {
         std::cout << "\n1. 4x2 (1)";
         std::cout << "\n2. 5x2 (2)";
@@ -405,8 +335,7 @@ int main() {
     std::cout << "\n";
 
     games::memory_game::init(&table);
-    games::memory_game::ask_data(table_empty, &response, &old_answer,
-                                 &memory_count);
+    games::memory_game::ask_data(table_empty, &response, &old_answer, &memory_count);
     games::memory_game::assign_results(&table_empty, &table, &response,
                                        &first_time, &old_answer, &memory_count);
 

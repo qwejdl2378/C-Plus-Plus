@@ -1,26 +1,31 @@
 /**
  * @file
  * @author [Krishna Vedala](https://github.com/kvedala)
- * @brief Implementation of
- * [Spirograph](https://en.wikipedia.org/wiki/Spirograph)
+ * @brief Implementation of [Spirograph](https://en.wikipedia.org/wiki/Spirograph) (内摆线与外摆线螺旋绘图算法实现)
  *
  * @details
- * Implementation of the program is based on the geometry shown in the figure
- * below:
+ * 螺旋作图仪（Spirograph）是一种几何画图玩具，可以绘制称为内摆线（Hypotrochoid）和外摆线（Epitrochoid）的数学曲线。
  *
- * <a
- * href="https://commons.wikimedia.org/wiki/File:Resonance_Cascade.svg"><img
- * src="https://upload.wikimedia.org/wikipedia/commons/3/39/Resonance_Cascade.svg"
- * alt="Spirograph geometry from Wikipedia" style="width: 250px"/></a>
+ * ### 螺旋曲线数学公式
+ * 本实现中采用如下笛卡尔坐标公式生成点：
+ *   x = R * [ (1 - k) * cos(t) + l * k * cos((1 - k) * t / k) ]
+ *   y = R * [ (1 - k) * sin(t) - l * k * sin((1 - k) * t / k) ]
+ * 其中：
+ * 1. R 是外圆（大圆）的半径，本程序中缩放常量 R = 1.0。
+ * 2. k = r / R 是内圆（小圆）半径与外圆半径的比例值，满足 0 < k < 1。
+ * 3. l = ρ / r 是画笔（marker）到内圆圆心的相对距离比例，满足 0 <= l <= 1。
+ * 4. t 是旋转角弧度，代表时间变化参数。
  */
+
 #ifdef USE_GLUT
 #ifdef __APPLE__
-#include <GLUT/glut.h>  // include path on Macs is different
+#include <GLUT/glut.h>  // macOS 环境下的 GLUT 路径
 #else
-#include <GL/glut.h>
+#include <GL/glut.h>    // Linux/Windows 环境下的 GLUT 路径
 #endif  // __APPLE__
 #endif
-#define _USE_MATH_DEFINES /**< required for MSVC compiler */
+
+#define _USE_MATH_DEFINES /**< MSVC 编译器所需的数学常量定义宏 */
 #include <array>
 #include <cmath>
 #include <cstdlib>
@@ -30,52 +35,31 @@
 #include <iostream>
 #include <sstream>
 #ifdef _OPENMP
-#include <omp.h>
+#include <omp.h>        // 支持 OpenMP 多线程并行加速计算
 #endif
 
 /**
- * @namespace spirograph Functions related to spirograph.cpp
+ * spirograph 命名空间
  */
 namespace spirograph {
-/** Generate spirograph curve into arrays `x` and `y` such that the i^th point
- * in 2D is represented by `(x[i],y[i])`. The generating function is given by:
- * \f{eqnarray*}{
- * x &=& R\left[ (1-k) \cos (t) + l\cdot k\cdot\cos \left(\frac{1-k}{k}t\right)
- * \right]\\
- * y &=& R\left[ (1-k) \sin (t) - l\cdot k\cdot\sin \left(\frac{1-k}{k}t\right)
- * \right] \f}
- * where
- * * \f$R\f$ is the scaling parameter that we will consider \f$=1\f$
- * * \f$l=\frac{\rho}{r}\f$ is the relative distance of marker from the centre
- * of inner circle and \f$0\le l\le1\f$
- * * \f$\rho\f$ is physical distance of marker from centre of inner circle
- * * \f$r\f$ is the radius of inner circle
- * * \f$k=\frac{r}{R}\f$ is the ratio of radius of inner circle to outer circle
- * and \f$0<k<1\f$
- * * \f$R\f$ is the radius of outer circle
- * * \f$t\f$ is the angle of rotation of the point i.e., represents the time
- * parameter
- *
- * Since we are considering ratios, the actual values of \f$r\f$ and
- * \f$R\f$ are immaterial.
- *
- * @tparam N number of points = size of array
- * @param [out] points Array of 2D points represented as std::pair
- * @param l the relative distance of marker from the centre of
- * inner circle and \f$0\le l\le1\f$
- * @param k the ratio of radius of inner circle to outer circle and \f$0<k<1\f$
- * @param rot the number of rotations to perform (can be fractional value)
+/**
+ * @brief 生成螺旋线曲线点阵
+ * @tparam N 点的数量（数组大小）
+ * @param[out] points 存储二维坐标点的双精度 std::pair 数组指针
+ * @param l 画笔相对内圆心的距离比率值 (0 <= l <= 1)
+ * @param k 内圆与外圆半径比率值 (0 < k < 1)
+ * @param rot 旋转模拟的总圈数（可以是浮点小数）
  */
 template <std::size_t N>
 void spirograph(std::array<std::pair<double, double>, N> *points, double l,
                 double k, double rot) {
-    double dt = rot * 2.f * M_PI / N;
+    double dt = rot * 2.f * M_PI / N; // 每次采样角度增量
     double R = 1.f;
     const double k1 = 1.f - k;
     int32_t step = 0;
 
 #ifdef _OPENMP
-#pragma omp for
+#pragma omp for // 如果开启 OpenMP，则多线程并行计算各个点坐标
 #endif
     for (step = 0; step < N; step++) {
         double t = dt * step;
@@ -87,8 +71,12 @@ void spirograph(std::array<std::pair<double, double>, N> *points, double l,
 }
 
 /**
- * @brief Test function to save resulting points to a CSV file.
- *
+ * @brief 单元自测函数：生成点阵数据并将其保存到 CSV 文件中
+ * @note
+ * 【Bug 警示说明】：
+ * 在第 110 行：`fp << points[i].first << "," << points[i].first;`
+ * 作者在输出坐标点时将 `first`（X 坐标）写入了两次，导致 CSV 中输出的 Y 轴数据实际上也是 X 轴的值。
+ * 若要得到正确的螺旋图像数据，应当修正为：`points[i].first << "," << points[i].second`。
  */
 void test() {
     const size_t N = 500;
@@ -107,7 +95,7 @@ void test() {
     spirograph(&points, l, k, rot);
 
     for (size_t i = 0; i < N; i++) {
-        fp << points[i].first << "," << points[i].first;
+        fp << points[i].first << "," << points[i].first; // 存在输出双 X 坐标的 bug
         if (i < N - 1) {
             fp << '\n';
         }
@@ -117,47 +105,41 @@ void test() {
 }
 
 #ifdef USE_GLUT
-static bool paused = 0; /**< flag to set pause/unpause animation */
-static const int animation_speed = 25; /**< animation delate in ms */
+static bool paused = 0; /**< 标记是否暂停动画 */
+static const int animation_speed = 25; /**< 动画间隔延迟（毫秒） */
 
-static const double step = 0.01;   /**< animation step size */
-static double l_ratio = step * 10; /**< the l-ratio defined in docs */
-static double k_ratio = step;      /**< the k-ratio defined in docs */
-static const double num_rot = 20.; /**< number of rotations to simulate */
+static const double step = 0.01;   /**< 动画单步增量 */
+static double l_ratio = step * 10; /**< l-ratio 参数 */
+static double k_ratio = step;      /**< k-ratio 参数 */
+static const double num_rot = 20.; /**< 旋转圈数 */
 
-/** A wrapper that is not available in all GLUT implementations.
+/**
+ * @brief 自定义位图字符串渲染函数（GLUT 兼容包装）
  */
 static inline void glutBitmapString(void *font, char *message) {
     for (char *ch = message; *ch != '\0'; ch++) glutBitmapCharacter(font, *ch);
 }
 
 /**
- * @brief Function to graph (x,y) points on the OpenGL graphics window.
- *
- * @tparam N number of points = size of array
- * @param [in] points Array of 2D points represented as std::pair
- * @param l the relative distance of marker from the centre of
- * inner circle and \f$0\le l\le1\f$ to display info
- * @param k the ratio of radius of inner circle to outer circle and \f$0<k<1\f$
- * to display info
+ * @brief 绘制螺旋曲线和文字信息到 OpenGL 图形窗口上
  */
 template <size_t N>
 void display_graph(const std::array<std::pair<double, double>, N> &points,
                    double l, double k) {
-    glClearColor(1.0f, 1.0f, 1.0f,
-                 0.0f);            // Set background color to white and opaque
-    glClear(GL_COLOR_BUFFER_BIT);  // Clear the color buffer (background)
+    glClearColor(1.0f, 1.0f, 1.0f, 0.0f); // 背景涂白
+    glClear(GL_COLOR_BUFFER_BIT);
 
-    glBegin(GL_LINES);         // draw line segments
-    glColor3f(0.f, 0.f, 1.f);  // blue
-    glPointSize(2.f);          // point size in pixels
+    glBegin(GL_LINES);         // 绘制直线段
+    glColor3f(0.f, 0.f, 1.f);  // 蓝色线段
+    glPointSize(2.f);
 
     for (size_t i = 1; i < N; i++) {
-        glVertex2f(points[i - 1].first, points[i - 1].second);  // line from
-        glVertex2f(points[i].first, points[i].second);          // line to
+        glVertex2f(points[i - 1].first, points[i - 1].second);
+        glVertex2f(points[i].first, points[i].second);
     }
     glEnd();
 
+    // 绘制当前 l 和 k 参数到屏幕左上角
     glColor3f(0.f, 0.f, 0.f);
     std::stringstream buffer;
     buffer << std::setw(3) << "l = " << l;
@@ -175,14 +157,13 @@ void display_graph(const std::array<std::pair<double, double>, N> &points,
 }
 
 /**
- * @brief Test function with animation
- *
+ * @brief 含有动画演变展示的测试绘制函数
  */
 void test2() {
-    const size_t N = 5000;  // number of samples
+    const size_t N = 5000;
 
-    static bool direction1 = true;  // increment if true, otherwise decrement
-    static bool direction2 = true;  // increment if true, otherwise decrement
+    static bool direction1 = true;
+    static bool direction2 = true;
 
     std::array<std::pair<double, double>, N> points;
 
@@ -190,37 +171,37 @@ void test2() {
     display_graph(points, l_ratio, k_ratio);
 
     if (paused)
-        // if paused, do not update l_ratio and k_ratio
-        return;
+        return; // 暂停状态，直接返回不更新比率值
 
-    if (direction1) {                 // increment k_ratio
-        if (k_ratio >= (1.f - step))  // maximum limit
-            direction1 = false;       // reverse direction of k_ratio
+    // 动态调整 k_ratio 和 l_ratio 的值以产生变幻动画效果
+    if (direction1) {
+        if (k_ratio >= (1.f - step))
+            direction1 = false;
         else
             k_ratio += step;
-    } else {                    // decrement k_ratio
-        if (k_ratio <= step) {  // minimum limit
-            direction1 = true;  // reverse direction of k_ratio
+    } else {
+        if (k_ratio <= step) {
+            direction1 = true;
 
-            if (direction2) {                 // increment l_ratio
-                if (l_ratio >= (1.f - step))  // max limit of l_ratio
-                    direction2 = false;       // reverse direction of l_ratio
+            if (direction2) {
+                if (l_ratio >= (1.f - step))
+                    direction2 = false;
                 else
                     l_ratio += step;
-            } else {                    // decrement l_ratio
-                if (l_ratio <= step)    // minimum limit of l_ratio
-                    direction2 = true;  // reverse direction of l_ratio
+            } else {
+                if (l_ratio <= step)
+                    direction2 = true;
                 else
                     l_ratio -= step;
             }
-        } else {  // no min limit of k_ratio
+        } else {
             k_ratio -= step;
         }
     }
 }
 
 /**
- * @brief GLUT timer callback function to add animation delay.
+ * @brief GLUT 定时器回调函数，用以维持稳定的帧率延时
  */
 void timer_cb(int t) {
     glutTimerFunc(animation_speed, timer_cb, 0);
@@ -228,34 +209,30 @@ void timer_cb(int t) {
 }
 
 /**
- * @brief Keypress event call back function.
- *
- * @param key ID of the key pressed
- * @param x mouse pointer position at event
- * @param y mouse pointer position at event
+ * @brief 键盘按键事件响应回调函数
  */
 void keyboard_cb(unsigned char key, int x, int y) {
     switch (key) {
-        case ' ':              // spacebar toggles pause
-            paused = !paused;  // toggle
+        case ' ': // 空格键：切换暂停/播放
+            paused = !paused;
             break;
         case GLUT_KEY_UP:
-        case '+':  // up arrow key
+        case '+': // 增加 k_ratio 值
             k_ratio += step;
             break;
         case GLUT_KEY_DOWN:
-        case '_':  // down arrow key
+        case '_': // 减少 k_ratio 值
             k_ratio -= step;
             break;
         case GLUT_KEY_RIGHT:
-        case '=':  // left arrow key
+        case '=': // 增加 l_ratio 值
             l_ratio += step;
             break;
         case GLUT_KEY_LEFT:
-        case '-':  // right arrow key
+        case '-': // 减少 l_ratio 值
             l_ratio -= step;
             break;
-        case 0x1B:  // escape key exits
+        case 0x1B: // ESC 键退出程序
             exit(EXIT_SUCCESS);
         default:
             return;
@@ -264,16 +241,18 @@ void keyboard_cb(unsigned char key, int x, int y) {
 #endif
 }  // namespace spirograph
 
-/** Main function */
+/**
+ * @brief 主函数
+ */
 int main(int argc, char **argv) {
-    spirograph::test();
+    spirograph::test(); // 执行 CSV 输出保存自测
 
 #ifdef USE_GLUT
+    // 如果定义了 USE_GLUT，启动 OpenGL 视窗和主循环
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE);
     glutCreateWindow("Spirograph");
     glutInitWindowSize(400, 400);
-    // glutIdleFunc(glutPostRedisplay);
     glutTimerFunc(spirograph::animation_speed, spirograph::timer_cb, 0);
     glutKeyboardFunc(spirograph::keyboard_cb);
     glutDisplayFunc(spirograph::test2);
