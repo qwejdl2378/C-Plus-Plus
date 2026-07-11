@@ -1,29 +1,24 @@
 /**
  * @file
- * @brief [Word Break Problem](https://leetcode.com/problems/word-break/)
+ * @brief Implementation of the [Word Break Problem](https://leetcode.com/problems/word-break/) (单词拆分问题算法实现)
+ *
  * @details
- * Given a non-empty string s and a dictionary wordDict containing a list of
- * non-empty words, determine if s can be segmented into a space-separated
- * sequence of one or more dictionary words.
+ * 单词拆分问题：给定一个非空字符串 s 和一个包含非空单词列表的字典 `wordDict`，
+ * 判断是否可以将 s 拆分为一个或多个在字典中出现的单词序列。
  *
- * Note:
- * The same word in the dictionary may be reused multiple times in the
- * segmentation. You may assume the dictionary does not contain duplicate words.
+ * 字典中的单词允许被重复使用多次，且字典中没有重复的单词。
  *
- * Example 1:
- * Input: s = "leetcode", wordDict = ["leet", "code"]
- * Output: true
- * Explanation: Return true because "leetcode" can be segmented as "leet code".
+ * ### 动态规划状态转移（记忆化递归自顶向下）
+ * 设递归函数 `check(pos)` 表示从字符串 s 的第 `pos` 个索引位置开始，剩余子串是否能被合法地拆分：
+ * - 边界条件：若 `pos == s.length()`，说明整串已被成功拆解匹配完毕，返回 `true`。
+ * - 缓存机制：`dp[pos]` 存储该位置是否已探过路，`1` 代表成功，`0` 代表失败，`INT_MAX` 代表未计算。
+ * - 状态转移：从 `pos` 开始向后枚举所有可能的拆分长度：
+ *   若前缀 `s[pos...i]` 在字典中存在，且子问题 `check(i + 1)` 也返回 `true`：
+ *   则当前状态为真，记录并返回 `true`。
+ *   若枚举完所有前缀后均无解，则记录 `dp[pos] = 0` 并返回 `false`。
  *
- * Example 2:
- * Input: s = "applepenapple", wordDict = ["apple", "pen"]
- * Output: true
- * Explanation: Return true because "applepenapple" can be segmented as "apple
- * pen apple". Note that you are allowed to reuse a dictionary word.
- *
- * Example 3:
- * Input: s = "catsandog", wordDict = ["cats", "dog", "sand", "and", "cat"]
- * Output: false
+ * 时间复杂度: O(N^2 * L)，其中 N 为字符串长度，L 为单词的最大长度。
+ * 空间复杂度: O(N)
  *
  * @author [Akshay Anand] (https://github.com/axayjha)
  */
@@ -37,25 +32,19 @@
 
 /**
  * @namespace dynamic_programming
- * @brief Dynamic programming algorithms
+ * @brief 动态规划算法命名空间
  */
 namespace dynamic_programming {
-
 /**
  * @namespace word_break
- * @brief Functions for [Word Break](https://leetcode.com/problems/word-break/)
- * problem
+ * @brief 单词拆分相关算法命名空间
  */
 namespace word_break {
-
 /**
- * @brief Function that checks if the string passed in param is present in
- * the the unordered_set passed
- *
- * @param str the string to be searched
- * @param strSet unordered set of string, that is to be looked into
- * @returns `true` if str is present in strSet
- * @returns `false` if str is not present in strSet
+ * @brief 判断单词是否在字典中存在
+ * @param str 待查询的单词串
+ * @param strSet 字典集合
+ * @returns 是否存在于字典中
  */
 bool exists(const std::string &str,
             const std::unordered_set<std::string> &strSet) {
@@ -63,86 +52,59 @@ bool exists(const std::string &str,
 }
 
 /**
- * @brief Function that checks if the string passed in param can be
- * segmented from position 'pos', and then correctly go on to segment the
- * rest of the string correctly as well to reach a solution
- *
- * @param s the complete string to be segmented
- * @param strSet unordered set of string, that is to be used as the
- * reference dictionary
- * @param pos the index value at which we will segment string and test
- * further if it is correctly segmented at pos
- * @param dp the vector to memoize solution for each position
- * @returns `true` if a valid solution/segmentation is possible by segmenting at
- * index pos
- * @returns `false` otherwise
+ * @brief 记忆化递归检测拆分可能性
+ * @param s 原始字符串
+ * @param strSet 字典哈希表（提供 O(1) 查询）
+ * @param pos 当前处理的起始位置
+ * @param dp 记忆化状态向量指针
+ * @returns 能否从当前位置合法拆分到末尾
  */
 bool check(const std::string &s, const std::unordered_set<std::string> &strSet,
            int pos, std::vector<int> *dp) {
+    // 已经成功完成对整个字符串的拆分
     if (pos == s.length()) {
-        // if we have reached till the end of the string, means we have
-        // segmented throughout correctly hence we have a solution, thus
-        // returning true
         return true;
     }
 
+    // 命中缓存则直接返回结果
     if (dp->at(pos) != INT_MAX) {
-        // if dp[pos] is not INT_MAX, means we must have saved a solution
-        // for the position pos; then return if the solution at pos is true
-        // or not
         return dp->at(pos) == 1;
     }
 
-    std::string wordTillNow =
-        "";  // string to save the prefixes of word till different positons
+    std::string wordTillNow = "";  // 用于累积记录当前位置开始的前缀字符串
 
+    // 循环扫描各种前缀长度
     for (int i = pos; i < s.length(); i++) {
-        // Loop starting from pos to end, to check valid set of
-        // segmentations if any
-        wordTillNow +=
-            std::string(1, s[i]);  // storing the prefix till the position i
+        wordTillNow += s[i]; // 追加当前字符
 
-        // if the prefix till current position is present in the dictionary
-        // and the remaining substring can also be segmented legally, then
-        // set solution at position pos in the memo, and return true
+        // 前缀存在且剩余子串可以被合法拆分
         if (exists(wordTillNow, strSet) && check(s, strSet, i + 1, dp)) {
-            dp->at(pos) = 1;
+            dp->at(pos) = 1; // 记录为可以成功拆分
             return true;
         }
     }
-    // if function has still not returned, then there must be no legal
-    // segmentation possible after segmenting at pos
-    dp->at(pos) = 0;  // so set solution at pos as false
-    return false;     // and return no solution at position pos
+    
+    dp->at(pos) = 0; // 记录该位置无法完成后续拆分
+    return false;
 }
 
 /**
- * @brief Function that checks if the string passed in param can be
- * segmented into the strings present in the vector.
- * In others words, it checks if any permutation of strings in
- * the vector can be concatenated to form the final string.
- *
- * @param s the complete string to be segmented
- * @param wordDict a vector of words to be used as dictionary to look into
- * @returns `true` if s can be formed by a combination of strings present in
- * wordDict
- * @return `false` otherwise
+ * @brief 单词拆分封装入口函数
+ * @param s 输入字符串
+ * @param wordDict 字典列表
+ * @returns 是否能完成拆分
  */
 bool wordBreak(const std::string &s, const std::vector<std::string> &wordDict) {
-    // unordered set to store words in the dictionary for constant time
-    // search
+    // 将 vector 单词表转化为无序哈希集合以提供常数级 O(1) 查询效率
     std::unordered_set<std::string> strSet;
     for (const auto &s : wordDict) {
         strSet.insert(s);
     }
-    // a vector to be used for memoization, whose value at index i will
-    // tell if the string s can be segmented (correctly) at position i.
-    // initializing it with INT_MAX (which will denote no solution)
+    
+    // 初始化记忆化向量 dp，大小为字符串长度，值默认为 INT_MAX (代表未处理过)
     std::vector<int> dp(s.length(), INT_MAX);
 
-    // calling check method with position = 0, to check from left
-    // from where can be start segmenting the complete string in correct
-    // manner
+    // 从 0 号索引位置开始检验
     return check(s, strSet, 0, &dp);
 }
 
@@ -150,37 +112,28 @@ bool wordBreak(const std::string &s, const std::vector<std::string> &wordDict) {
 }  // namespace dynamic_programming
 
 /**
- * @brief Test implementations
- * @returns void
+ * @brief 单元自测用例
  */
 static void test() {
-    // the complete string
     const std::string s = "applepenapple";
-    // the dictionary to be used
     const std::vector<std::string> wordDict = {"apple", "pen"};
 
+    // 应该返回 true，因为可以分割为 "apple" + "pen" + "apple"
     assert(dynamic_programming::word_break::wordBreak(s, wordDict));
 
-    // should return true, as applepenapple can be segmented as apple + pen +
-    // apple
-    std::cout << dynamic_programming::word_break::wordBreak(s, wordDict)
-              << std::endl;
     std::cout << "Test implementation passed!\n";
 }
+
 /**
- * @brief Main function
- * @returns 0 on exit
+ * @brief 主函数
  */
 int main() {
-    test();  // call the test function :)
+    test();  // 运行自测
 
-    // the complete string
     const std::string s = "applepenapple";
-    // the dictionary to be used
     const std::vector<std::string> wordDict = {"apple", "pen"};
 
-    // should return true, as applepenapple can be segmented as apple + pen +
-    // apple
     std::cout << dynamic_programming::word_break::wordBreak(s, wordDict)
               << std::endl;
+    return 0;
 }
